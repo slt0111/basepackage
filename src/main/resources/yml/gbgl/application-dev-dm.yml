@@ -1,0 +1,115 @@
+insigma:
+  sysconfigure:
+    defaultPassword: 0
+security:
+  cache:
+    enable: false
+  cors:
+    origins: http://localhost,http://localhost:8089,http://localhost:9100
+  free:
+    requests: /loginApp,/data-api,/sys/usermenu/getMenuList,/business/QGGWY/QGGWY_TJGL001/QGGWY_TJGL001_0032/StBatchSetRpt/getLogProcess,/ProcessStart,/ofdfile,/ProcessCompletion,/business/GWYGL/GWYGL_DJGL/GWYGL_DJGL_001_0001/GWYGL_PUBLIC_013_0001/OFDSignature/saveNewSignature,/business/ZZGBGL/ZZGBGL_YJXX/ZZGBGL_YJXX002/ZZGBGL_YJXX002_0003/DynamicEarlyWarning,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX001_0001,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX002_0002,/business/ZZGBGL_GRHX/ZZGBGL_GRHX002/ZZGBGL_GRHX002_0001
+  repeat:
+    enable: true
+  validatecode:
+    enable: false
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration, org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration, org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+  jta:
+    enabled: false
+  jmx:
+    enabled: false
+    default-domain : gbgl
+  main:
+    allow-bean-definition-overriding: true
+  datasource:
+    url: ${url}
+    username: ${username}
+    password: ${password}
+    driver-class-name: dm.jdbc.driver.DmDriver
+    druid:
+      web-stat-filter:
+        enabled: false
+      stat-view-servlet:
+        enabled: false
+      filter:
+        config:
+          enabled: true
+        slf4j:
+          connection-log-enabled: false
+          data-source-log-enabled: false
+          enabled: true
+          result-set-log-enabled: false
+          statement-executable-sql-log-enable: true
+          statement-log-enabled: false
+        stat:
+          enabled: true
+          merge-sql: false
+          slow-sql-millis: 5000
+        wall:
+          config:
+            multi-statement-allow: true
+          enabled: false
+      initial-size: 5
+      max-active: 1000
+      max-wait: 60000
+      min-idle: 5
+      connection-properties: config.decrypt=true;config.decrypt.key=${spring.datasource.publickey}
+  jpa:
+    hibernate:
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.DmDialect
+    show-sql: true
+  servlet: #请勿删除，去掉该层可能导致文件上传无法使用
+    multipart:
+      max-file-size: 4000MB
+      max-request-size: 4000MB
+      enabled: true #开启
+schedule: #定时任务
+  switch_on: false
+cookie:
+  domain: localhost
+base:
+  domain: http://localhost
+server:
+  tomcat:
+    max-http-form-post-size: -1
+sso:
+  is-sso-open : ${isssoopen}
+  app-name: ${appname}
+  auth-logon-page-root-url: ${authurl}
+  auth-mode: direct
+  client-sso-index-url: index
+  auth-service-root-url: ${authserviceurl}
+  client-auth-class: com.insigma.common.OdinClientAuth
+  free-urls: /login,/data-api,/loginApp,/validateCode,/ProcessStart,/ofdfile,/ProcessCompletion,/business/GWYGL/GWYGL_DJGL/GWYGL_DJGL_001_0001/GWYGL_PUBLIC_013_0001/OFDSignature/saveNewSignature,/business/ZZGBGL/ZZGBGL_YJXX/ZZGBGL_YJXX002/ZZGBGL_YJXX002_0003/DynamicEarlyWarning,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX001_0001,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX002_0002,/business/ZZGBGL_GRHX/ZZGBGL_GRHX002/ZZGBGL_GRHX002_0001,/business/ZZGBGL/ZZGBGL_MZCP/ZZGBGL_MZCP001/ZZGBGL_MZCP001_0001
+sqlprocess:
+  devenvironment: true
+syslog:
+  # 应用编码
+  app-code: ZZGBGL
+
+
+schnameBd: HY_GWYGL_BD
+
+hy:
+  runSort: true
+  runCheck: true
+  ownerIP: false
+  xms: "-Xms512m -XX:PermSize=256M -XX:MaxPermSize=512M"
+  locationHzbUpload: false # true：直接解压指定的hzb数据包，解压后的文件放到项目的temp中
+  locationHzbUNZIPFile: false # true：locationHzbUpload必须为true，直接读取解压后的文件夹里的文件。【注意】 需要手动复制相片到项目的HZBPHOTOS里面
+  checkIds: 6b3e77a448c511efb98000ff2da359b8,402881fe5ef0d4e2015ef0d5f545000b,ff8080818471a33e018471c3b1930000,
+  submitSize: 5000
+  queryDLR: false
+  yearEnd: 1
+  systemId: 1,U002,U003,U004
+  memberInit: false
+  zip: /,/help/,/help/JCK/,/help/TJXT/,/template/
+  jdk: nil,
+  path:
+    enable: true
+    hzb_path: d:/hzb/

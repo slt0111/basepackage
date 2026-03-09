@@ -1,0 +1,65 @@
+insigma:
+  sysconfigure:
+    defaultPassword: UserPw@123456
+security:
+  cache:
+    enable: false
+  cors:
+    origins: http://localhost,http://localhost:8089,http://localhost:8090
+  repeat:
+    enable: true
+  validatecode:
+    enable: false
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration, org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration, org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+  jta:
+    enabled: false
+  main:
+    allow-bean-definition-overriding: true
+  datasource:
+    type: '${type}'
+    url: '${url}'
+    username: '${username}'
+    password: '${password}'
+    driver-class-name: '${driver-class-name}'
+    druid:
+      web-stat-filter:
+        enabled: false
+      stat-view-servlet:
+        enabled: false
+      filter:
+        config:
+          enabled: true
+        slf4j:
+          connection-log-enabled: false
+          data-source-log-enabled: false
+          enabled: true
+          result-set-log-enabled: false
+          statement-executable-sql-log-enable: true
+          statement-log-enabled: false
+        stat:
+          enabled: true
+          merge-sql: false
+          slow-sql-millis: 5000
+        wall:
+          config:
+            multi-statement-allow: true
+          enabled: false
+      initial-size: 5
+      max-active: 200
+      max-wait: 60000
+      min-idle: 5
+  jpa:
+    hibernate:
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+    show-sql: false
+  servlet: #请勿删除，去掉该层可能导致文件上传无法使用
+    multipart:
+      max-file-size: 4000MB
+      max-request-size: 4000MB
+      enabled: true #开启

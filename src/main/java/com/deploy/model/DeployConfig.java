@@ -1,0 +1,57 @@
+package com.deploy.model;
+
+import lombok.Data;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 部署配置模型
+ */
+@Data
+public class DeployConfig {
+    /**
+     * 安装目录
+     */
+    private String installDir;
+
+    /**
+     * 操作系统类型（Windows、Linux）
+     */
+    private String osType;
+
+    /**
+     * 中间件类型（Tomcat、TongWeb）
+     */
+    private String middlewareType;
+
+    /**
+     * 端口配置列表
+     */
+    private List<PortConfig> ports;
+
+    /**
+     * 数据库配置列表
+     */
+    private List<DatabaseConfig> databases;
+
+    /**
+     * WAR包列表（支持选择或使用内置）
+     */
+    private List<String> warFiles;
+
+    /**
+     * 是否使用内置WAR包
+     */
+    private Boolean useBuiltInWars = true;
+
+    /**
+     * TongWeb部署目录（仅TongWeb使用）
+     */
+    private String tongWebDeployDir;
+
+    /**
+     * YML配置文件内容（key为应用类型：unified/cadre）
+     */
+    private Map<String, String> ymlConfigs;
+}
+

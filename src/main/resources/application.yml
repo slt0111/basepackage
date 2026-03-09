@@ -1,0 +1,16 @@
+server:
+  port: 8022
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: war-deploy-tool
+  resources:
+    static-locations: classpath:/static
+
+logging:
+  level:
+    com.deploy: INFO
+    root: INFO
+

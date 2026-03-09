@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 部署向导页面：与首页统一的互联网工具台风格，供一键部署入口跳转 -->
+    <title>红云公务员干部产品工具 - 一键部署向导</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 单屏布局：页面不整体滚动，仅右侧内容区内部滚动；左右分栏 */
+        html {
+            height: 100%;
+            overflow: hidden;
+            scroll-behavior: smooth;
+        }
+        body.deploy-page {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
+            background: radial-gradient(circle at top left, #e0f2ff 0, #f5f7fa 40%, #eef2ff 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #111827;
+            padding: 16px;
+        }
+        .deploy-shell {
+            width: 100%;
+            max-width: 1400px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 20px 24px 24px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            backdrop-filter: blur(18px);
+        }
+        .deploy-nav {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        /* 左右分栏：参考程序安装向导，左侧为步骤导航区，右侧为内容区 */
+        .deploy-body {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            gap: 0;
+        }
+        /* 左侧：安装向导风格 - 浅色背景、清晰步骤列表、可点击 */
+        .deploy-sidebar {
+            flex-shrink: 0;
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0 20px 0;
+        }
+        /* 加载已有配置：标题单独一行（加载配置：），下方一行下拉+按钮（左侧栏） */
+        .deploy-sidebar .config-load-section {
+            margin: 0 12px 16px;
+            padding: 0;
+            background: transparent;
+            border: none;
+        }
+        .deploy-sidebar .config-load-section .form-group {
+            /* 注：标题单独一行，内容区单独一行 */
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            margin-bottom: 0;
+        }
+        .deploy-sidebar .config-load-section label {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            /* 注：强制左对齐，避免被全局 form-group 样式影响出现居中/截断 */
+            width: 100%;
+            text-align: left;
+            align-self: flex-start;
+            white-space: nowrap;
+        }
+        /* 下拉与按钮同一行：下拉占满剩余宽度 */
+        .deploy-sidebar .config-load-section .config-load-row {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+        }
+        .deploy-sidebar .config-load-section select {
+            flex: 1;
+            min-width: 0;
+            padding: 8px 10px;
+            font-size: 13px;
+            line-height: 1.2;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            width: 100%;
+            max-width: none;
+        }
+        .deploy-sidebar .config-load-section select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+        }
+        .deploy-sidebar .config-load-section .btn-secondary {
+            flex-shrink: 0;
+            padding: 8px 12px;
+            font-size: 13px;
+            border-radius: 999px;
+        }
+        .deploy-sidebar .wizard-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 0;
+            padding: 0 12px 0 16px;
+            border: none;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            position: relative; /* 为整体纵向连接线提供定位上下文 */
+        }
+        /* 整体纵向连接线：确保所有步骤之间视觉上是连续的一条线 */
+        .deploy-sidebar .wizard-steps::before {
+            content: '';
+            position: absolute;
+            left: 30px; /* 对齐步骤圆点中心 */
+            top: 40px;
+            bottom: 40px;
+            width: 2px;
+            background: rgba(148, 163, 184, 0.25);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .deploy-sidebar .step-item {
+            flex: none;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 10px;
+            position: relative;
+            border-radius: 12px;
+            cursor: pointer;
+            /* 注：极简安装向导风格：弱卡片感，不要条条框框 */
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            border: none;
+            background: transparent;
+        }
+        .deploy-sidebar .step-item:hover {
+            background: rgba(15, 23, 42, 0.04);
+        }
+        .deploy-sidebar .step-item.active {
+            background: rgba(59, 130, 246, 0.08);
+            box-shadow: none;
+        }
+        .deploy-sidebar .step-item.completed:not(.active) {
+            background: transparent;
+        }
+        /* 单个步骤上的旧连接线隐藏，避免与统一纵向线重复 */
+        .deploy-sidebar .step-item:not(:last-child)::after {
+            content: none;
+        }
+        .deploy-sidebar .step-connector {
+            display: none;
+        }
+        .deploy-sidebar .step-number {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .deploy-sidebar .step-title {
+            /* 注：覆盖全局 body.deploy-page .step-title（否则字号会被压回 12px） */
+            font-size: 17px !important;
+            line-height: 1.3;
+            flex: 1;
+            min-width: 0;
+            color: #0f172a;
+        }
+        /* 右侧：内容区，仅此区域内部滚动，无整页滚动 */
+        .deploy-main {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #fff;
+        }
+        .deploy-main .deploy-content {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px 24px 20px;
+            max-width: 100%;
+        }
+        .deploy-nav-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .deploy-logo-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
+        }
+        .deploy-nav-title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #4b5563;
+        }
+        .deploy-nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .deploy-nav-link {
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #1d4ed8;
+            background: rgba(219, 234, 254, 0.9);
+            border: 1px solid rgba(129, 140, 248, 0.5);
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .deploy-nav-link:hover {
+            background: rgba(191, 219, 254, 1);
+            color: #1e40af;
+        }
+        .deploy-content {
+            max-width: 100%;
+        }
+        .deploy-content h1 {
+            margin: 0 0 12px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #64748b;
+            text-align: left;
+        }
+        /* 向导步骤：左侧栏内为竖排连接线，由 .deploy-sidebar .step-item::after 控制 */
+        ::selection { background-color: #667eea; color: white; }
+        ::-moz-selection { background-color: #667eea; color: white; }
+        .wizard-steps { overflow: visible !important; }
+        .step-item { overflow: visible !important; }
+
+        /* ========== 部署页统一风格：按钮、表单、区块、排版与首页一致 ========== */
+
+        /* 配置加载区：卡片化、圆角、浅色边框（仅用于右侧内容区，避免影响左侧栏） */
+        body.deploy-page .deploy-content .config-load-section {
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, rgba(248,250,252,0.98), #fff);
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+        body.deploy-page .deploy-content .config-load-section label {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        body.deploy-page .deploy-content .config-load-section select {
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            font-size: 14px;
+            max-width: 280px;
+        }
+        body.deploy-page .deploy-content .config-load-section select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        /* 主按钮：胶囊形、渐变、与首页主操作一致 */
+        body.deploy-page .btn-primary {
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        body.deploy-page .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+        }
+        body.deploy-page .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 次要按钮：描边胶囊、与首页「仅执行数据初始化」一致 */
+        body.deploy-page .btn-secondary {
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: rgba(248, 250, 252, 0.98);
+            color: #374151;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            width: auto;
+            height: auto;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+        body.deploy-page .btn-secondary:hover {
+            background: #e5e7eb;
+            border-color: rgba(148, 163, 184, 0.9);
+            color: #111827;
+        }
+
+        /* 测试连接按钮：强调色胶囊 */
+        body.deploy-page .btn-test {
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            color: #fff;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        body.deploy-page .btn-test:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+        }
+
+        /* 步骤条：圆角数字、与首页色系一致 */
+        body.deploy-page .step-number {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: #64748b;
+        }
+        body.deploy-page .step-item.active .step-number {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4);
+        }
+        body.deploy-page .step-item.completed .step-number {
+            background: #10b981;
+            color: #fff;
+        }
+        body.deploy-page .step-title {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+        }
+        body.deploy-page .step-item.active .step-title {
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+        body.deploy-page .step-item.completed .step-title {
+            color: #047857;
+        }
+        body.deploy-page .wizard-steps {
+            margin-bottom: 28px;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        /* 步骤内容区：不设最小高度，由内容决定，超出则在右侧区域内滚动 */
+        body.deploy-page .wizard-step {
+            min-height: 0;
+        }
+        /* 步骤内容标题：紧凑，下划线分隔 */
+        body.deploy-page .wizard-step h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0 0 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        body.deploy-page .wizard-step h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        /* 表单网格：两列排布，充分利用空间 */
+        body.deploy-page .deploy-content .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0 20px;
+            margin-bottom: 0;
+        }
+        body.deploy-page .deploy-content .form-grid .form-group {
+            grid-column: span 1;
+        }
+        body.deploy-page .deploy-content .form-grid .form-group.form-group-full {
+            grid-column: 1 / -1;
+        }
+        body.deploy-page .deploy-content .form-group {
+            margin-bottom: 14px;
+            align-items: center;
+            gap: 12px;
+        }
+        body.deploy-page .deploy-content .form-group label {
+            min-width: 110px;
+            flex-shrink: 0;
+            font-weight: 500;
+            color: #374151;
+            font-size: 13px;
+        }
+        body.deploy-page .deploy-content input[type="text"],
+        body.deploy-page .deploy-content input[type="number"],
+        body.deploy-page .deploy-content input[type="password"],
+        body.deploy-page .deploy-content select {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        body.deploy-page .deploy-content input:focus,
+        body.deploy-page .deploy-content select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        body.deploy-page .deploy-content input[readonly] {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        /* 数据库密码输入容器：与用户名输入框同宽，使用 flex + 负外边距让图标“压”在输入框右侧内部 */
+        body.deploy-page .db-password-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        body.deploy-page .db-password-wrapper input[type="password"],
+        body.deploy-page .db-password-wrapper input[type="text"] {
+            flex: 1;
+            width: 100%;
+            padding-right: 40px; /* 为右侧圆形图标预留一点内边距，避免文字盖住图标 */
+        }
+        /* 右侧图标按钮：通过负外边距略微“压”到输入框内部的右侧 */
+        body.deploy-page .db-password-toggle {
+            width: 18px;
+            height: 18px;
+            margin-left: -30px; /* 关键：向左压到输入框内部 */
+            border-radius: 50%;
+            background-color: transparent;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 16px 16px;
+            background-image: url('img/ciphertext.png'); /* 默认密文图标（密文状态） */
+            cursor: pointer;
+            box-shadow: none;
+        }
+        /* 明文状态下的图标：切换为明文图片 */
+        body.deploy-page .db-password-toggle.is-plain {
+            background-image: url('img/Plaintext.png');
+        }
+
+        /* 端口配置：已按要求从参数配置中移除（保留样式块占位，便于后续恢复） */
+
+        /* 数据库配置区块：紧凑卡片 */
+        body.deploy-page .database-config-section {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        body.deploy-page .database-config-section h3 {
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #1e293b;
+        }
+        body.deploy-page .test-result {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+        }
+        body.deploy-page .test-result.success {
+            background: rgba(16, 185, 129, 0.12);
+            color: #047857;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        body.deploy-page .test-result.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #b91c1c;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        /* WAR 配置区块：紧凑 */
+        body.deploy-page .war-config-section {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        body.deploy-page .war-list {
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
+        body.deploy-page .war-list li {
+            padding: 10px 14px;
+        }
+
+        /* YML 配置区：紧凑 */
+        body.deploy-page .yml-config-section {
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        body.deploy-page .yml-editor {
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            padding: 14px;
+        }
+        body.deploy-page .yml-editor:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        body.deploy-page .yml-buttons {
+            gap: 12px;
+        }
+
+        /* 确认配置布局：左右卡片，紧凑 */
+        body.deploy-page .confirm-layout {
+            gap: 16px;
+            margin-top: 12px;
+        }
+        body.deploy-page .confirm-left,
+        body.deploy-page .confirm-right {
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        body.deploy-page .confirm-left h2,
+        body.deploy-page .confirm-right h2 {
+            border: none;
+            margin-bottom: 10px;
+            font-size: 15px;
+            color: #0f172a;
+        }
+        body.deploy-page .config-summary {
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+        body.deploy-page .config-manage-section {
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(254, 243, 199, 0.4);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+        body.deploy-page .config-manage-section input {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.5);
+        }
+
+        /* 日志区：深色背景、圆角 */
+        body.deploy-page .log-container {
+            border-radius: 10px;
+            border: 1px solid rgba(30, 41, 59, 0.5);
+        }
+        body.deploy-page .service-check-section {
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+        body.deploy-page .check-result {
+            border-radius: 8px;
+        }
+
+        /* 步骤内的向导按钮隐藏，由右侧底部固定栏统一展示，避免需滚动才能看到 */
+        body.deploy-page .deploy-main .wizard-step .wizard-buttons {
+            display: none !important;
+        }
+        /* 右侧底部固定操作栏：上一步/下一步常驻，禁用态灰显 */
+        body.deploy-page .deploy-actions {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px 24px;
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
+        }
+        body.deploy-page .deploy-actions button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* 保留类名以兼容可能的外部引用 */
+        body.deploy-page .wizard-buttons {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+            gap: 12px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* 脚本执行区：紧凑 */
+        body.deploy-page .script-section {
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        body.deploy-page .script-log {
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="deploy-page">
+    <div class="deploy-shell">
+        <!-- 顶栏：与首页统一的品牌与返回入口 -->
+        <header class="deploy-nav">
+            <div class="deploy-nav-left">
+                <span class="deploy-logo-dot" aria-hidden="true"></span>
+                <span class="deploy-nav-title">红云 · 运维工具台 · 一键部署</span>
+            </div>
+            <div class="deploy-nav-right">
+                <a href="index.html" class="deploy-nav-link">返回首页</a>
+            </div>
+        </header>
+
+        <!-- 左右分栏：左侧步骤导航，右侧步骤内容（区域内滚动） -->
+        <div class="deploy-body">
+            <aside class="deploy-sidebar" aria-label="部署步骤导航">
+                <!-- 加载已有配置：标题 + 下拉 + 按钮（简化配置工作） -->
+                <div class="config-load-section">
+                    <div class="form-group">
+                        <label>加载配置：</label>
+                        <div class="config-load-row">
+                            <select id="configSelect">
+                                <option value="">选择配置（可选）</option>
+                            </select>
+                            <button type="button" class="btn-secondary" onclick="loadConfig()">加载</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 部署向导步骤指示器（左侧竖排） -->
+                <div class="wizard-steps">
+                    <!-- 步骤导航：基础配置+数据库配置合并为“参数配置” -->
+                    <div class="step-item active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-title">参数配置</div>
+                        <div class="step-connector"></div>
+                    </div>
+                    <div class="step-item" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-title">WAR包管理</div>
+                        <div class="step-connector"></div>
+                    </div>
+                    <div class="step-item" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-title">YML配置</div>
+                        <div class="step-connector"></div>
+                    </div>
+                    <div class="step-item" data-step="4">
+                        <div class="step-number">4</div>
+                        <div class="step-title">确认配置</div>
+                        <div class="step-connector"></div>
+                    </div>
+                    <div class="step-item" data-step="5">
+                        <div class="step-number">5</div>
+                        <div class="step-title">数据初始化</div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="deploy-main">
+                <div class="deploy-content">
+                    <!-- <h1>一键部署向导</h1> -->
+                    <!-- 步骤内容区可单独滚动，底部操作栏固定不滚动 -->
+
+                    <!-- 步骤1：参数配置（基础配置 + 数据库配置合并） -->
+        <div class="wizard-step" id="step1" data-step="1">
+            <h2>第一步：参数配置</h2>
+
+            <!-- 部署目录：供 Tomcat / TongWeb 统一使用；受浏览器安全限制，可能需要用户手工补全绝对路径 -->
+            <div class="form-group">
+                <label for="installDir">部署目录：</label>
+                <div style="display:flex; gap:10px; width:100%; align-items:center;">
+                    <input type="text" id="installDir" placeholder="例如: D:\deploy 或 /opt/deploy" required style="flex:1; min-width:0;">
+                    <button type="button" class="btn-secondary" onclick="checkInstallDir()" style="flex-shrink:0;">检查目录</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>中间件类型：</label>
+                <select id="middlewareType">
+                    <option value="Tomcat">Tomcat</option>
+                    <option value="TongWeb">TongWeb</option>
+                </select>
+            </div>
+
+            <!-- 数据库配置：按要求仅保留 IP / 用户名 / 密码 -->
+            <!-- 数据库IP统一配置区域：所有数据库共用同一IP，便于集中维护 -->
+            <div class="database-config-section">
+                <h3>数据库基础配置</h3>
+                <div class="database-item">
+                    <div class="form-group">
+                        <label>数据库IP：</label>
+                        <input type="text" id="db-ip-common" placeholder="例如: 10.200.58.67">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统一支撑数据库配置：仅保留用户名和密码，IP来自统一配置 -->
+            <div class="database-config-section">
+                <h3>统一支撑数据库</h3>
+                <div class="database-item">
+                    <div class="form-group">
+                        <label>数据库用户名：</label>
+                        <input type="text" id="db-user-unified" placeholder="用户名" value="HY_ZGGL_FRAME">
+                    </div>
+                    <div class="form-group">
+                        <label>数据库密码：</label>
+                        <!-- 密码输入：图标绝对定位在输入框内部最右侧，参考 Element show-password 示意图 -->
+                        <div class="db-password-wrapper">
+                            <input type="password" id="db-pwd-unified" placeholder="密码">
+                            <span class="db-password-toggle" onclick="togglePasswordVisibility('db-pwd-unified', this)"></span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-test" onclick="testDatabase('unified')">测试连接</button>
+                    <span id="test-result-unified" class="test-result"></span>
+                </div>
+            </div>
+
+            <!-- 干部应用数据库配置：仅保留用户名和密码，IP来自统一配置 -->
+            <div class="database-config-section">
+                <h3>干部应用数据库</h3>
+                <div class="database-item">
+                    <div class="form-group">
+                        <label>数据库用户名：</label>
+                        <input type="text" id="db-user-cadre" placeholder="用户名" value="HY_ZGGL_ZZGB">
+                    </div>
+                    <div class="form-group">
+                        <label>数据库密码：</label>
+                        <!-- 密码输入：图标绝对定位在输入框内部最右侧，参考 Element show-password 示意图 -->
+                        <div class="db-password-wrapper">
+                            <input type="password" id="db-pwd-cadre" placeholder="密码">
+                            <span class="db-password-toggle" onclick="togglePasswordVisibility('db-pwd-cadre', this)"></span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-test" onclick="testDatabase('cadre')">测试连接</button>
+                    <span id="test-result-cadre" class="test-result"></span>
+                </div>
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-primary" onclick="nextStep()">下一步</button>
+            </div>
+        </div>
+
+        <!-- 步骤2：WAR包管理 -->
+        <div class="wizard-step" id="step2" data-step="2" style="display: none;">
+            <h2>第二步：WAR包管理</h2>
+            
+            <div class="war-config-section">
+                <h3>统一支撑WAR包</h3>
+                <div class="war-item">
+                    <div class="war-list-container">
+                        <p class="war-list-label">资源目录下的WAR包：</p>
+                        <ul id="war-list-unified" class="war-list">
+                            <li>加载中...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="war-config-section">
+                <h3>干部应用WAR包</h3>
+                <div class="war-item">
+                    <div class="war-list-container">
+                        <p class="war-list-label">资源目录下的WAR包：</p>
+                        <ul id="war-list-cadre" class="war-list">
+                            <li>加载中...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-secondary" onclick="prevStep()">上一步</button>
+                <button type="button" class="btn-primary" onclick="nextStep()">下一步</button>
+            </div>
+        </div>
+
+        <!-- 步骤3：YML配置 -->
+        <div class="wizard-step" id="step3" data-step="3" style="display: none;">
+            <h2>第三步：YML配置文件配置</h2>
+            
+            <div class="yml-config-section">
+                <div class="form-group">
+                    <label>选择应用：</label>
+                    <select id="ymlAppSelect" onchange="loadYmlTemplate()">
+                        <option value="unified">统一支撑</option>
+                        <option value="cadre">干部应用</option>
+                    </select>
+                </div>
+                
+                <div class="yml-editor-section">
+                    <h3 id="ymlAppTitle">统一支撑YML配置</h3>
+                    <textarea id="ymlContent" class="yml-editor" rows="20" placeholder="YML配置内容将在这里显示..."></textarea>
+                    <div class="yml-buttons">
+                        <button type="button" class="btn-secondary" onclick="resetYmlTemplate()">重置模板</button>
+                        <button type="button" class="btn-primary" onclick="saveYmlConfig()">保存配置</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-secondary" onclick="prevStep()">上一步</button>
+                <button type="button" class="btn-primary" onclick="nextStep()">下一步</button>
+            </div>
+        </div>
+
+        <!-- 步骤4：确认配置 -->
+        <div class="wizard-step" id="step4" data-step="4" style="display: none;">
+            <div class="confirm-layout">
+                <div class="confirm-left">
+                    <h2>配置清单</h2>
+                    <div id="configSummary" class="config-summary"></div>
+                    <div class="confirm-buttons">
+                        <button type="button" class="btn-primary" onclick="startDeploy()">开始部署</button>
+                        <div class="config-manage-section">
+                            <div class="form-group">
+                                <label>配置名称：</label>
+                                <input type="text" id="configName" placeholder="请输入配置名称" style="width: 200px; padding: 8px;">
+                            </div>
+                            <button type="button" class="btn-secondary" onclick="saveConfig()">保存配置</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="confirm-right">
+                    <h2>部署日志</h2>
+                    <div id="logContainer" class="log-container"></div>
+                    <div class="service-check-section">
+                        <h3>服务检测</h3>
+                        <div class="form-group">
+                            <input type="number" id="checkPort" placeholder="端口号" min="1" max="65535">
+                            <button type="button" class="btn-primary" onclick="checkService()">检测服务</button>
+                        </div>
+                        <div id="checkResult" class="check-result"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-secondary" onclick="prevStep()">上一步</button>
+            </div>
+        </div>
+
+        <!-- 步骤5：数据初始化 -->
+        <div class="wizard-step" id="step5" data-step="5" style="display: none;">
+            <h2>第五步：数据初始化</h2>
+            
+            <div class="script-section">
+                <div class="form-group">
+                    <label>选择数据库：</label>
+                    <select id="scriptDatabase">
+                        <option value="unified">统一支撑</option>
+                        <option value="cadre">干部应用</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>脚本文件（可选，留空执行所有）：</label>
+                    <input type="text" id="scriptFiles" placeholder="多个文件用逗号分隔，例如: init.sql,data.sql">
+                </div>
+                <button type="button" class="btn-primary" onclick="executeScript()">执行脚本</button>
+                <div id="scriptLog" class="script-log"></div>
+            </div>
+
+            <div class="wizard-buttons">
+                <button type="button" class="btn-secondary" onclick="prevStep()">上一步</button>
+            </div>
+        </div>
+                </div>
+                <!-- 右侧底部固定操作栏：上一步/下一步常驻，第一步禁用上一步、第五步禁用下一步 -->
+                <div class="deploy-actions" id="deployActions">
+                    <button type="button" id="deployBtnPrev" class="btn-secondary" onclick="prevStep()" disabled>上一步</button>
+                    <button type="button" id="deployBtnNext" class="btn-primary" onclick="nextStep()">下一步</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/message.js"></script>
+    <script src="js/deploy.js"></script>
+</body>
+</html>
+

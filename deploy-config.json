@@ -1,0 +1,42 @@
+{
+  "installDir" : "D:\\",
+  "osType" : "Windows",
+  "middlewareType" : "Tomcat",
+  "ports" : [ {
+    "name" : "统一支撑HTTP端口",
+    "port" : 8088,
+    "type" : "HTTP"
+  }, {
+    "name" : "干部应用HTTP端口",
+    "port" : 8099,
+    "type" : "HTTP"
+  } ],
+  "databases" : [ {
+    "name" : "统一支撑",
+    "type" : "达梦",
+    "connectionString" : "jdbc:dm://10.200.58.167:5236/DAMENG",
+    "username" : "HY_ZGGL_FRAME",
+    "password" : "",
+    "host" : null,
+    "port" : null,
+    "database" : null,
+    "extraParams" : null
+  }, {
+    "name" : "干部应用",
+    "type" : "达梦",
+    "connectionString" : "123",
+    "username" : "123",
+    "password" : "",
+    "host" : null,
+    "port" : null,
+    "database" : null,
+    "extraParams" : null
+  } ],
+  "warFiles" : [ "tyzc/tyzc-api.war", "tyzc/tyzc.war" ],
+  "useBuiltInWars" : true,
+  "tongWebDeployDir" : "",
+  "ymlConfigs" : {
+    "unified" : "insigma:\n  sysconfigure:\n    defaultPassword: UserPw@123456\nsecurity:\n  cache:\n    enable: false\n  cors:\n    origins: http://localhost,http://localhost:8089,http://localhost:8090,http://localhost:9100,http://192.168.182.157:8089\n  repeat:\n    enable: true\n  validatecode:\n    enable: false\nspring:\n  autoconfigure:\n    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration, org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration, org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration\n  jta:\n    enabled: false\n  main:\n    allow-bean-definition-overriding: true\n  datasource:\n    type: '${type}'\n    url: '${url}'\n    username: '${username}'\n    password: '${password}'\n    driver-class-name: '${driver-class-name}'\n    druid:\n      web-stat-filter:\n        enabled: false\n      stat-view-servlet:\n        enabled: false\n      filter:\n        config:\n          enabled: true\n        slf4j:\n          connection-log-enabled: false\n          data-source-log-enabled: false\n          enabled: true\n          result-set-log-enabled: false\n          statement-executable-sql-log-enable: true\n          statement-log-enabled: false\n        stat:\n          enabled: true\n          merge-sql: false\n          slow-sql-millis: 5000\n        wall:\n          config:\n            multi-statement-allow: true\n          enabled: false\n      initial-size: 5\n      max-active: 200\n      max-wait: 60000\n      min-idle: 5\n  jpa:\n    hibernate:\n      naming:\n        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl\n    properties:\n      hibernate:\n        dialect: org.hibernate.dialect.OracleDialect\n    show-sql: false\n  servlet: #请勿删除，去掉该层可能导致文件上传无法使用\n    multipart:\n      max-file-size: 4000MB\n      max-request-size: 4000MB\n      enabled: true #开启\n",
+    "cadre" : ""
+  }
+}

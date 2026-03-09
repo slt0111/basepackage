@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 主页：红云公务员干部产品工具入口页，提供一键部署与数据初始化两个主操作入口 -->
+    <title>红云公务员干部产品工具</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 主页专用内联样式：确保即使外部 css 被缓存或未更新，首页也能呈现为互联网工具风格，而不是纯文字列表 */
+
+        /* 单屏布局：页面不整体滚动，仅主内容区域内滚动 */
+        html {
+            height: 100%;
+            overflow: hidden;
+        }
+        /* 整体背景与排版：使用渐变背景与居中卡片布局 */
+        body.home-page {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
+            background: radial-gradient(circle at top left, #e0f2ff 0, #f5f7fa 40%, #eef2ff 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #111827;
+        }
+
+        /* 外壳：占满可用高度，内部 flex 分配，主内容区可滚动 */
+        .home-shell {
+            width: 100%;
+            max-width: 1280px;
+            flex: 1;
+            min-height: 0;
+            margin: 16px 24px;
+            padding: 20px 28px 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            backdrop-filter: blur(18px);
+        }
+
+        /* 顶部导航：固定高度，不参与滚动 */
+        .home-nav {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .home-nav-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .home-logo-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
+        }
+
+        .home-nav-title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #4b5563;
+        }
+
+        .home-nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .home-nav-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            color: #0f172a;
+            background: rgba(226, 232, 240, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.6);
+        }
+
+        .home-nav-pill-muted {
+            color: #6b7280;
+            background: rgba(248, 250, 252, 0.9);
+        }
+
+        /* 主体布局：左侧说明 + 右侧状态卡片；仅此区域内部可滚动 */
+        .home-main {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            margin-top: 4px;
+            margin-bottom: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .home-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .home-hero {
+            padding-right: 10px;
+        }
+
+        .home-header {
+            margin-bottom: 14px;
+        }
+
+        .home-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #0f172a;
+            background: linear-gradient(90deg, rgba(59,130,246,0.08), rgba(129,140,248,0.08));
+            border: 1px solid rgba(148,163,184,0.35);
+        }
+
+        .home-title {
+            margin-top: 12px;
+            margin-bottom: 8px;
+            font-size: 28px;
+            line-height: 1.25;
+            font-weight: 650;
+            letter-spacing: 0.02em;
+            color: #020617;
+        }
+
+        .home-subtitle {
+            margin: 0;
+            max-width: 640px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #4b5563;
+        }
+
+        .home-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .home-chip {
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #1d4ed8;
+            background: rgba(219, 234, 254, 0.9);
+        }
+
+        .home-chip-quiet {
+            color: #0f766e;
+            background: rgba(204, 251, 241, 0.95);
+        }
+
+        .home-hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .home-hero-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 18px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.1s ease;
+        }
+
+        .home-hero-btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #ffffff;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.38);
+        }
+
+        .home-hero-btn-primary:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+        }
+
+        .home-hero-btn-ghost {
+            background: rgba(248, 250, 252, 0.96);
+            color: #1f2937;
+            border: 1px solid rgba(148, 163, 184, 0.8);
+        }
+
+        .home-hero-btn-ghost:hover {
+            background: #e5e7eb;
+        }
+
+        .home-hero-list {
+            margin: 14px 0 0;
+            padding-left: 18px;
+            font-size: 12px;
+            color: #4b5563;
+            line-height: 1.7;
+        }
+
+        .home-hero-list li + li {
+            margin-top: 4px;
+        }
+
+        .home-aside {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .home-stat-card {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: radial-gradient(circle at top left, rgba(59,130,246,0.1), #ffffff);
+            border: 1px solid rgba(148, 163, 184, 0.5);
+        }
+
+        .home-stat-card + .home-stat-card {
+            background: radial-gradient(circle at top right, rgba(16,185,129,0.1), #ffffff);
+        }
+
+        .home-stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+
+        .home-stat-main {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .home-stat-desc {
+            margin: 0;
+            font-size: 12px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .home-stat-list {
+            margin: 0;
+            padding-left: 16px;
+            font-size: 12px;
+            color: #4b5563;
+            line-height: 1.7;
+        }
+
+        /* 下半部分卡片入口：一键部署 / 数据初始化 */
+        .entry-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+            gap: 18px;
+        }
+
+        a.entry-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 20px 18px;
+            border-radius: 18px;
+            text-decoration: none;
+            color: inherit;
+            background: #ffffff;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+            transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+            cursor: pointer;
+        }
+
+        .entry-card-primary {
+            background: radial-gradient(circle at top left, rgba(59,130,246,0.06), #ffffff 45%);
+        }
+
+        .entry-card-secondary {
+            background: radial-gradient(circle at top right, rgba(45,212,191,0.06), #ffffff 45%);
+        }
+
+        a.entry-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 22px 55px rgba(15, 23, 42, 0.2);
+            border-color: rgba(59, 130, 246, 0.6);
+            background-color: #f9fafb;
+        }
+
+        .entry-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            margin-bottom: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .entry-icon-deploy {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+        }
+
+        .entry-icon-deploy::before,
+        .entry-icon-deploy::after {
+            content: '';
+            position: absolute;
+            inset: 10px 8px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+        }
+
+        .entry-icon-deploy::after {
+            inset: 16px 14px;
+            border-top: none;
+            border-left: none;
+        }
+
+        .entry-icon-data {
+            background: linear-gradient(135deg, #10b981, #14b8a6);
+        }
+
+        .entry-icon-data::before,
+        .entry-icon-data::after {
+            content: '';
+            position: absolute;
+            left: 9px;
+            right: 9px;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(240, 253, 250, 0.96);
+        }
+
+        .entry-icon-data::before {
+            top: 11px;
+        }
+
+        .entry-icon-data::after {
+            top: 21px;
+        }
+
+        .entry-content {
+            flex: 1;
+        }
+
+        .entry-title {
+            margin: 0 0 6px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .entry-desc {
+            margin: 0 0 10px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #4b5563;
+        }
+
+        .entry-meta {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 12px;
+            color: #6b7280;
+            list-style: none;
+        }
+
+        .entry-meta li {
+            margin-bottom: 3px;
+            position: relative;
+            padding-left: 12px;
+        }
+
+        .entry-meta li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 7px;
+            width: 4px;
+            height: 4px;
+            border-radius: 999px;
+            background-color: #a3b3d1;
+        }
+
+        .entry-action {
+            margin-top: 16px;
+            align-self: flex-start;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: #1d4ed8;
+            background: rgba(219, 234, 254, 0.9);
+            border: 1px solid rgba(129, 140, 248, 0.5);
+        }
+
+        .entry-card-secondary .entry-action {
+            color: #047857;
+            background: rgba(209, 250, 229, 0.96);
+            border-color: rgba(45, 212, 191, 0.65);
+        }
+
+        /* 页脚：固定底部，不参与滚动 */
+        .home-footer {
+            flex-shrink: 0;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.65);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .home-footer-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .home-badge {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #0f172a;
+            background: #e5e7eb;
+        }
+
+        .home-footer-text {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .home-footer-right {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .home-footer-tag {
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            color: #4b5563;
+            background: #f3f4f6;
+        }
+
+        /* 响应式：在小屏幕下堆叠布局，避免挤在一行变成「文字墙」 */
+        @media (max-width: 900px) {
+            .home-shell {
+                margin: 16px;
+                padding: 22px 18px 18px;
+                border-radius: 16px;
+            }
+
+            .home-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .entry-grid {
+                grid-template-columns: minmax(0, 1fr);
+                margin-top: 10px;
+            }
+
+            .home-title {
+                font-size: 22px;
+            }
+
+            .home-subtitle {
+                font-size: 13px;
+            }
+
+            .home-footer {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .home-footer-text {
+                white-space: normal;
+            }
+        }
+    </style>
+</head>
+<body class="home-page">
+    <div class="home-shell">
+        <!-- 顶部导航区域：模拟互联网工具台的品牌导航与环境标签 -->
+        <header class="home-nav">
+            <div class="home-nav-left">
+                <span class="home-logo-dot"></span>
+                <span class="home-nav-title">红云 · 运维工具台</span>
+            </div>
+            <div class="home-nav-right">
+                <span class="home-nav-pill">环境：本地 / 测试</span>
+                <span class="home-nav-pill home-nav-pill-muted">版本：v1.0</span>
+            </div>
+        </header>
+
+        <main class="home-main">
+            <!-- 上半区：左侧产品说明 + 右侧状态卡片，强化「工具平台」感 -->
+            <div class="home-layout">
+                <!-- 左侧产品说明与主操作区 -->
+                <section class="home-hero">
+                    <!-- 品牌标题区域：突出产品名称与定位 -->
+                    <div class="home-header">
+                        <div class="home-label">红云·工具集</div>
+                        <h1 class="home-title">红云公务员干部产品工具</h1>
+                        <p class="home-subtitle">
+                            面向实施与运维的一站式能力中心，用最少的操作完成从参数配置、WAR 部署到数据初始化的全流程。
+                        </p>
+                    </div>
+
+                    <!-- 关键词标签：展示工具擅长的典型场景 -->
+                    <div class="home-chip-row">
+                        <span class="home-chip">一键部署</span>
+                        <span class="home-chip">多环境切换</span>
+                        <span class="home-chip">数据库初始化</span>
+                        <span class="home-chip home-chip-quiet">运维提效</span>
+                    </div>
+
+                    <!-- 主操作按钮：引导用户选择一键部署或只做数据初始化 -->
+                    <div class="home-hero-actions">
+                        <a href="deploy.html" class="home-hero-btn home-hero-btn-primary">
+                            立即一键部署
+                        </a>
+                        <a href="#" class="home-hero-btn home-hero-btn-ghost" onclick="return showDataInitTip();">
+                            仅执行数据初始化
+                        </a>
+                    </div>
+
+                    <!-- 典型使用流程：用互联网产品的文案方式解释两大入口的区别 -->
+                    <ul class="home-hero-list">
+                        <li>首次落地或重装时，推荐选择 <strong>「立即一键部署」</strong>，按步骤完成安装目录、中间件、数据库、YML 与 WAR 配置。</li>
+                        <li>已有稳定环境，仅需重刷基础数据或回归测试时，选择 <strong>「仅执行数据初始化」</strong> 即可。</li>
+                        <li>所有动作都会记录详细日志，方便排查问题与复盘每一次部署。</li>
+                    </ul>
+                </section>
+
+                <!-- 右侧状态与提示卡片：提供环境检查与快速理解 -->
+                <aside class="home-aside" aria-label="环境状态与使用提示">
+                    <div class="home-stat-card">
+                        <div class="home-stat-label">推荐流程</div>
+                        <div class="home-stat-main">基础部署 &nbsp;→&nbsp; 数据初始化</div>
+                        <p class="home-stat-desc">
+                            先完成应用与中间件的部署，再执行对应库的初始化脚本，避免出现连通性与权限问题。
+                        </p>
+                    </div>
+
+                    <div class="home-stat-card">
+                        <div class="home-stat-label">适用场景</div>
+                        <ul class="home-stat-list">
+                            <li>新省市环境首次上线</li>
+                            <li>测试/联调环境重建</li>
+                            <li>演示环境一键恢复</li>
+                        </ul>
+                    </div>
+                </aside>
+            </div>
+
+            <!-- 下半区：两张卡片分别承载一键部署和数据初始化入口 -->
+            <section class="entry-grid" aria-label="核心功能入口">
+                <a class="entry-card entry-card-primary" href="deploy.html">
+                    <div class="entry-icon entry-icon-deploy" aria-hidden="true"></div>
+                    <div class="entry-content">
+                        <h2 class="entry-title">一键部署</h2>
+                        <p class="entry-desc">
+                            引导式部署向导，串联安装目录、端口、数据库、WAR 包与 YML 配置，适合首次环境落地。
+                        </p>
+                        <ul class="entry-meta">
+                            <li>支持 Windows / Linux</li>
+                            <li>内置多环境配置模板</li>
+                            <li>实时部署日志与服务检测</li>
+                        </ul>
+                    </div>
+                    <span class="entry-action">进入部署向导</span>
+                </a>
+
+                <a class="entry-card entry-card-secondary" href="#" onclick="return showDataInitTip();">
+                    <div class="entry-icon entry-icon-data" aria-hidden="true"></div>
+                    <div class="entry-content">
+                        <h2 class="entry-title">数据初始化</h2>
+                        <p class="entry-desc">
+                            针对统一支撑与干部应用的数据库初始化，可按脚本批次执行，适用于环境重置与回归测试。
+                        </p>
+                        <ul class="entry-meta">
+                            <li>支持多脚本顺序执行</li>
+                            <li>与部署配置共用数据库连接</li>
+                            <li>执行日志可回溯审计</li>
+                        </ul>
+                    </div>
+                    <span class="entry-action">直接进入数据初始化</span>
+                </a>
+            </section>
+        </main>
+
+        <!-- 页脚信息：简要说明与适用场景 -->
+        <footer class="home-footer">
+            <div class="home-footer-left">
+                <span class="home-badge">内部运维工具</span>
+                <span class="home-footer-text">建议在专用运维环境中使用，确保具备数据库与中间件访问权限。</span>
+            </div>
+            <div class="home-footer-right">
+                <span class="home-footer-tag">统一支撑</span>
+                <span class="home-footer-tag">干部应用</span>
+                <span class="home-footer-tag">自动化部署</span>
+            </div>
+        </footer>
+    </div>
+    <script src="js/message.js"></script>
+    <script>
+        // 数据初始化入口提示：使用公共弹窗组件
+        function showDataInitTip() {
+            if (typeof Message !== 'undefined') {
+                Message.alert('数据初始化功能待开发');
+            } else {
+                alert('数据初始化功能待开发');
+            }
+            return false;
+        }
+    </script>
+</body>
+</html>
