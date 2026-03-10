@@ -24,7 +24,7 @@
             flex-direction: column;
             align-items: center;
             color: #111827;
-            padding: 16px;
+            padding: 8px; /* 收紧整页外边距，给中间内容区释放更多垂直高度 */
         }
         .deploy-shell {
             width: 100%;
@@ -34,7 +34,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            padding: 20px 24px 24px;
+            padding: 12px 20px 16px; /* 收紧容器内边距，进一步提升右侧内容区可视高度 */
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
@@ -46,17 +46,18 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
-            padding-bottom: 14px;
+            margin-bottom: 10px; /* 减小顶部区域与内容区之间的间距，释放更多高度给内容区 */
+            padding-bottom: 8px; /* 收紧导航条底部内边距 */
             border-bottom: 1px solid rgba(148, 163, 184, 0.3);
         }
         /* 左右分栏：参考程序安装向导，左侧为步骤导航区，右侧为内容区 */
         .deploy-body {
             display: flex;
             flex: 1;
-            min-height: 0;
+            min-height: 78vh; /* 略微再提高主体区域最小高度，让确认配置等步骤可展示更多内容 */
             overflow: hidden;
             gap: 0;
+            /* 调整主体区域占比：结合底部操作栏高度优化可视空间 */
         }
         /* 左侧：安装向导风格 - 浅色背景、清晰步骤列表、可点击 */
         .deploy-sidebar {
@@ -67,7 +68,7 @@
             overflow: hidden;
             background: #f8fafc;
             border-right: 1px solid #e2e8f0;
-            padding: 20px 0 20px 0;
+            padding: 12px 0 12px 0; /* 减少左侧栏上下留白，让整体高度更多分配给内容滚动区 */
         }
         /* 加载已有配置：标题单独一行（加载配置：），下方一行下拉+按钮（左侧栏） */
         .deploy-sidebar .config-load-section {
@@ -212,7 +213,7 @@
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 16px 24px 20px;
+            padding: 8px 24px 4px; /* 进一步收紧上下内边距，将更多垂直空间留给实际内容展示 */
             max-width: 100%;
         }
         .deploy-nav-left {
@@ -392,8 +393,8 @@
             color: #047857;
         }
         body.deploy-page .wizard-steps {
-            margin-bottom: 28px;
-            padding: 20px 0;
+            margin-bottom: 20px;
+            padding: 12px 0; /* 收紧步骤列表上下内边距，避免占用过多垂直空间 */
             border-bottom: 1px solid rgba(148, 163, 184, 0.25);
         }
 
@@ -541,72 +542,424 @@
             padding: 10px 14px;
         }
 
-        /* YML 配置区：紧凑 */
+        /* YML 配置区：紧凑 + 标签切换（统一支撑 / 干部应用） */
         body.deploy-page .yml-config-section {
             padding: 14px 16px;
             border-radius: 10px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
+            display: flex;              /* 让内部编辑区域可以铺满高度 */
+            flex-direction: column;
+            min-height: 260px;          /* 提升视觉高度，减少下方空白感 */
         }
-        body.deploy-page .yml-editor {
+        /* YML 应用切换标签栏：代替下拉选择应用的交互 */
+        body.deploy-page .yml-tab-bar {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        body.deploy-page .yml-tab {
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            background: rgba(248, 250, 252, 0.9);
+            color: #374151;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        body.deploy-page .yml-tab:hover {
+            background: #e5e7eb;
+        }
+        body.deploy-page .yml-tab.active {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #fff;
+            border-color: rgba(59, 130, 246, 0.9);
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.35);
+        }
+        /* 隐藏原来的下拉选择应用，仅作为脚本内部状态使用 */
+        body.deploy-page .yml-app-select-hidden {
+            display: none;
+        }
+        /* YML 编辑/展示容器：使用 flex 让代码视图尽量占满高度 */
+        body.deploy-page .yml-editor-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        /* YML 区域头部：左侧标题，右侧预留空间，与下方代码区解耦 */
+        body.deploy-page .yml-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        /* YML 代码区包裹容器：用于在内部右上角放置复制按钮 */
+        body.deploy-page .yml-viewer-wrapper {
+            position: relative;          /* 作为复制按钮绝对定位的参考容器 */
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+        /* 隐藏的 textarea：仅用于脚本内部存储，不对用户展示且只读 */
+        body.deploy-page .yml-editor-hidden {
+            display: none;
+        }
+        /* 只读的 YML 展示区域：占满剩余空间，可滚动，高度更加充实 */
+        body.deploy-page .yml-viewer {
+            flex: 1;
+            margin-top: 8px;
             border-radius: 10px;
             border: 1px solid rgba(148, 163, 184, 0.5);
-            padding: 14px;
+            padding: 12px 14px;
+            background: #f9fafb; /* 调整为浅色底，统一整体视觉风格，降低压迫感 */
+            color: #111827;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            overflow: auto;             /* 仅内部滚动，避免出现外部大片空白 */
+            white-space: nowrap;
         }
-        body.deploy-page .yml-editor:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        /* YML 代码行容器：用于支持逐行高亮 */
+        body.deploy-page .yml-viewer-code {
+            min-height: 100%;
         }
+        body.deploy-page .yml-line {
+            display: flex;
+            align-items: flex-start;
+        }
+        /* 行号列：弱化显示，方便定位 */
+        body.deploy-page .yml-line-no {
+            width: 40px;
+            flex-shrink: 0;
+            text-align: right;
+            margin-right: 12px;
+            color: #64748b;
+            user-select: none;
+        }
+        body.deploy-page .yml-line-text {
+            white-space: pre;
+        }
+        /* 被占位符替换过的行：使用浅蓝背景高亮，强调修改位置 */
+        body.deploy-page .yml-line-modified {
+            background: rgba(250, 204, 21, 0.22); /* 调整为淡黄色高亮，模拟代码差异提示效果，强调占位符替换行 */
+        }
+        body.deploy-page .yml-line-modified .yml-line-no {
+            color: #ca8a04;
+        }
+        /* YML 操作按钮区域：与代码区保持一定间距 */
         body.deploy-page .yml-buttons {
             gap: 12px;
+            margin-top: 10px;
+        }
+        /* YML 复制按钮：放置在代码视图内部右上角，显示“复制”文字 + 图标 */
+        body.deploy-page .yml-copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            background-color: rgba(248, 250, 252, 0.95);
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 4px 10px; /* 预留文字“复制”的水平空间 */
+            transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #374151;
+            gap: 4px; /* 文字与图标之间的间距 */
+        }
+        body.deploy-page .yml-copy-btn:hover {
+            background-color: #d1d5db;
+            border-color: rgba(107, 114, 128, 0.9);
+            box-shadow: 0 1px 4px rgba(148, 163, 184, 0.6);
+            transform: translateY(-0.5px);
+        }
+        body.deploy-page .yml-copy-btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        body.deploy-page .yml-copy-btn::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            border: 2px solid #4b5563; /* 深灰线条模拟文档边框 */
+            box-shadow: -3px -3px 0 0 #e5e7eb; /* 通过阴影模拟后面一层文档，实现“复制”图标效果 */
         }
 
-        /* 确认配置布局：左右卡片，紧凑 */
+        /* 确认配置步骤：整体说明与两栏布局 */
+        body.deploy-page .confirm-step-desc {
+            margin: 0 0 16px;
+            font-size: 14px;
+            color: #475569;
+            line-height: 1.5;
+        }
         body.deploy-page .confirm-layout {
-            gap: 16px;
-            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px; /* 适当收紧左右卡片间距，减少整体留白 */
+            margin-top: 0;
+            align-items: stretch; /* 两侧卡片高度拉齐，视觉更整齐 */
+        }
+        @media (max-width: 900px) {
+            body.deploy-page .confirm-layout {
+                grid-template-columns: 1fr;
+            }
         }
         body.deploy-page .confirm-left,
         body.deploy-page .confirm-right {
-            padding: 14px 16px;
+            padding: 14px 16px; /* 卡片内边距略微减小，降低块状感 */
+            border-radius: 14px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            min-height: 700px; /* 适当提高左右卡片最小高度，让内容区更“沉稳”且两侧视觉对齐 */
+        }
+        body.deploy-page .confirm-left:hover,
+        body.deploy-page .confirm-right:hover {
+            border-color: rgba(148, 163, 184, 0.5);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+        body.deploy-page .confirm-card-title {
+            margin: 0 0 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        /* 配置摘要：分组卡片，易读列表 */
+        body.deploy-page .config-summary {
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* 摘要分组之间的间距略微收紧 */
+        }
+        body.deploy-page .config-summary-item {
+            padding: 10px 12px; /* 单块摘要卡片内边距减小，信息更集中 */
             border-radius: 10px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
         }
-        body.deploy-page .confirm-left h2,
-        body.deploy-page .confirm-right h2 {
-            border: none;
-            margin-bottom: 10px;
-            font-size: 15px;
-            color: #0f172a;
+        body.deploy-page .config-summary-item h4 {
+            margin: 0 0 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            text-transform: none;
+            letter-spacing: 0.02em;
         }
-        body.deploy-page .config-summary {
-            border-radius: 10px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
+        body.deploy-page .config-summary-item p {
+            margin: 4px 0;
+            font-size: 13px;
+            color: #0f172a;
+            line-height: 1.45;
+        }
+        body.deploy-page .config-summary-item p strong {
+            color: #475569;
+            font-weight: 500;
+            min-width: 5em;
+            display: inline-block;
+        }
+        body.deploy-page .config-summary-item p.config-summary-sub {
+            margin-top: 10px;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: #334155;
+        }
+        body.deploy-page .config-summary-item p.config-summary-sub:first-of-type {
+            margin-top: 0;
+        }
+        /* 主操作区：开始部署 + 保存配置 */
+        body.deploy-page .confirm-actions {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        body.deploy-page .confirm-btn-deploy {
+            align-self: flex-start;
+            padding: 12px 24px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        body.deploy-page .confirm-btn-deploy:hover {
+            transform: translateY(-1px);
         }
         body.deploy-page .config-manage-section {
-            padding: 14px;
+            padding: 10px 12px;
             border-radius: 12px;
-            background: rgba(254, 243, 199, 0.4);
-            border: 1px solid rgba(245, 158, 11, 0.4);
+            background: rgba(254, 243, 199, 0.35);
+            border: 1px solid rgba(245, 158, 11, 0.35);
         }
-        body.deploy-page .config-manage-section input {
-            padding: 8px 12px;
-            border-radius: 8px;
+        body.deploy-page .config-manage-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 8px;
+        }
+        body.deploy-page .config-manage-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        body.deploy-page .config-name-input {
+            flex: 1;
+            min-width: 160px;
+            padding: 10px 14px;
+            border-radius: 10px;
             border: 1px solid rgba(148, 163, 184, 0.5);
+            font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        body.deploy-page .config-name-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        body.deploy-page .config-manage-section .btn-secondary {
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        /* 部署日志：等宽、深色背景，在固定高度区域内滚动，不撑破布局 */
+        body.deploy-page .log-container {
+            min-height: 600px;
+            max-height: 860px; /* 隐藏脚本预览区域后，给部署日志更多高度 */
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #0f172a;
+            border: 1px solid rgba(30, 41, 59, 0.8);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #e2e8f0;
+            max-width: 100%;
+            box-sizing: border-box;
+            white-space: pre-wrap;   /* 保留换行同时允许自动换行 */
+            word-break: break-all;   /* 单行超长（如极长路径/URL）时强制折行，避免撑宽布局 */
+            overflow-y: auto;        /* 竖向滚动 */
+            overflow-x: auto;        /* 如仍有超长内容，仅在容器内横向滚动，不撑破布局 */
+        }
+        body.deploy-page .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        body.deploy-page .log-entry.success { color: #86efac; }
+        body.deploy-page .log-entry.error { color: #fca5a5; }
+        body.deploy-page .log-entry.warning { color: #fde047; }
+        body.deploy-page .log-entry.info { color: #93c5fd; }
+        /* 服务状态徽标：展示统一支撑 / 干部应用心跳检测结果 */
+        body.deploy-page .service-status-bar {
+            margin-top: 4px;
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            vertical-align: middle;
+        }
+        body.deploy-page .service-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            background: #e5e7eb;
+            color: #374151;
+        }
+        body.deploy-page .service-status-pill.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #047857;
+        }
+        body.deploy-page .service-status-pill.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #b91c1c;
+        }
+        body.deploy-page .service-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: currentColor;
         }
 
-        /* 日志区：深色背景、圆角 */
-        body.deploy-page .log-container {
+        /* 部署脚本预览文本区域：使用等宽字体，便于运维复制和阅读脚本内容 */
+        body.deploy-page .deploy-script-text {
+            width: 100%;
+            min-height: 160px;
+            max-height: 360px;
+            margin-top: 6px;
             border-radius: 10px;
-            border: 1px solid rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            padding: 10px 12px;
+            background: #0f172a;
+            color: #e5e7eb;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            resize: vertical;
+            white-space: pre;
+            overflow: auto;
         }
-        body.deploy-page .service-check-section {
-            border-radius: 12px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
+
+        /* 部署脚本弹窗：点击“部署脚本”后弹出展示，避免占用主页面高度 */
+        body.deploy-page .deploy-script-modal-backdrop {
+            display: none; /* 默认隐藏，触发时由 JS 设置为 flex */
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 9999;
         }
-        body.deploy-page .check-result {
-            border-radius: 8px;
+        body.deploy-page .deploy-script-modal {
+            width: min(980px, 96vw);
+            max-height: 88vh;
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            box-shadow: 0 16px 48px rgba(15, 23, 42, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        body.deploy-page .deploy-script-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        body.deploy-page .deploy-script-modal-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        body.deploy-page .deploy-script-modal-body {
+            padding: 12px 14px;
+            overflow: auto;
+        }
+        body.deploy-page .deploy-script-modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 14px;
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
         }
 
         /* 步骤内的向导按钮隐藏，由右侧底部固定栏统一展示，避免需滚动才能看到 */
@@ -618,8 +971,9 @@
             flex-shrink: 0;
             display: flex;
             align-items: center;
+            justify-content: flex-end; /* 按钮靠右显示，符合操作区习惯 */
             gap: 12px;
-            padding: 16px 32px 24px;
+            padding: 6px 24px 4px; /* 再次收紧上下 / 左右内边距，使操作栏更贴近底部并释放更多高度给右侧内容 */
             border-top: 1px solid #e2e8f0;
             background: #fff;
         }
@@ -726,6 +1080,7 @@
                 </div>
             </div>
 
+            <!-- 中间件类型配置：保持与数据库IP同一层级，方便快速浏览与填写 -->
             <div class="form-group">
                 <label>中间件类型：</label>
                 <select id="middlewareType">
@@ -734,16 +1089,16 @@
                 </select>
             </div>
 
-            <!-- 数据库配置：按要求仅保留 IP / 用户名 / 密码 -->
-            <!-- 数据库IP统一配置区域：所有数据库共用同一IP，便于集中维护 -->
-            <div class="database-config-section">
-                <h3>数据库基础配置</h3>
-                <div class="database-item">
-                    <div class="form-group">
-                        <label>数据库IP：</label>
-                        <input type="text" id="db-ip-common" placeholder="例如: 10.200.58.67">
-                    </div>
-                </div>
+            <!-- 数据库IP配置：从原“数据库基础配置”区块上移，与中间件类型处于同层级 -->
+            <div class="form-group">
+                <label>数据库IP：</label>
+                <input type="text" id="db-ip-common" placeholder="例如: 10.200.58.67">
+            </div>
+
+            <!-- 服务器 URL：IP+端口，用于替换 YML 中的 authurl（如干部应用 sso 登录地址前缀） -->
+            <div class="form-group">
+                <label>服务器 URL：</label>
+                <input type="text" id="serverUrl" placeholder="例如: http://10.200.58.167:8080">
             </div>
 
             <!-- 统一支撑数据库配置：仅保留用户名和密码，IP来自统一配置 -->
@@ -801,10 +1156,19 @@
                 <h3>统一支撑WAR包</h3>
                 <div class="war-item">
                     <div class="war-list-container">
+                        <!-- 统一支撑 WAR 列表：展示当前 wars/tyzc 目录下可用的 WAR 文件 -->
                         <p class="war-list-label">资源目录下的WAR包：</p>
                         <ul id="war-list-unified" class="war-list">
                             <li>加载中...</li>
                         </ul>
+                    </div>
+                    <!-- 上传统一支撑 WAR：支持在不改动配置的情况下替换 wars/tyzc 目录中的 WAR 文件 -->
+                    <div class="form-group form-group-full" style="margin-top: 10px;">
+                        <label for="war-upload-unified">上传统一支撑WAR：</label>
+                        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                            <input type="file" id="war-upload-unified" accept=".war" style="flex: 1; min-width: 0;">
+                            <button type="button" class="btn-secondary" onclick="uploadWar('unified')">上传</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -813,10 +1177,19 @@
                 <h3>干部应用WAR包</h3>
                 <div class="war-item">
                     <div class="war-list-container">
+                        <!-- 干部应用 WAR 列表：展示当前 wars/gbgl 目录下可用的 WAR 文件 -->
                         <p class="war-list-label">资源目录下的WAR包：</p>
                         <ul id="war-list-cadre" class="war-list">
                             <li>加载中...</li>
                         </ul>
+                    </div>
+                    <!-- 上传干部应用 WAR：支持在不改动配置的情况下替换 wars/gbgl 目录中的 WAR 文件 -->
+                    <div class="form-group form-group-full" style="margin-top: 10px;">
+                        <label for="war-upload-cadre">上传干部应用WAR：</label>
+                        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                            <input type="file" id="war-upload-cadre" accept=".war" style="flex: 1; min-width: 0;">
+                            <button type="button" class="btn-secondary" onclick="uploadWar('cadre')">上传</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -832,7 +1205,13 @@
             <h2>第三步：YML配置文件配置</h2>
             
             <div class="yml-config-section">
-                <div class="form-group">
+                <!-- 顶部应用切换标签：统一支撑 / 干部应用 -->
+                <div class="yml-tab-bar">
+                    <button type="button" class="yml-tab active" data-app="unified" onclick="switchYmlTab('unified')">统一支撑</button>
+                    <button type="button" class="yml-tab" data-app="cadre" onclick="switchYmlTab('cadre')">干部应用</button>
+                </div>
+                <!-- 原下拉选择应用控件：隐藏，仅用于脚本内部状态与兼容已有逻辑 -->
+                <div class="form-group yml-app-select-hidden">
                     <label>选择应用：</label>
                     <select id="ymlAppSelect" onchange="loadYmlTemplate()">
                         <option value="unified">统一支撑</option>
@@ -841,8 +1220,17 @@
                 </div>
                 
                 <div class="yml-editor-section">
-                    <h3 id="ymlAppTitle">统一支撑YML配置</h3>
-                    <textarea id="ymlContent" class="yml-editor" rows="20" placeholder="YML配置内容将在这里显示..."></textarea>
+                    <div class="yml-header-row">
+                        <h3 id="ymlAppTitle">统一支撑YML配置</h3>
+                    </div>
+                    <!-- 隐藏的 textarea：只读，用于脚本保存最终YML文本，避免用户直接编辑 -->
+                    <textarea id="ymlContent" class="yml-editor-hidden" rows="20" placeholder="YML配置内容将在这里显示..." readonly></textarea>
+                    <!-- 对用户展示的只读YML视图：支持逐行高亮显示替换过的行，内部右上角提供复制按钮 -->
+                    <div class="yml-viewer-wrapper">
+                        <!-- 复制按钮：显示“复制”文字 + 图标，点击复制当前YML文件内容 -->
+                        <button type="button" class="yml-copy-btn" onclick="copyYmlToClipboard()" title="复制文件">复制</button>
+                        <div id="ymlViewer" class="yml-viewer" aria-readonly="true"></div>
+                    </div>
                     <div class="yml-buttons">
                         <button type="button" class="btn-secondary" onclick="resetYmlTemplate()">重置模板</button>
                         <button type="button" class="btn-primary" onclick="saveYmlConfig()">保存配置</button>
@@ -856,35 +1244,33 @@
             </div>
         </div>
 
-        <!-- 步骤4：确认配置 -->
+        <!-- 步骤4：确认配置 - 左侧配置清单与操作，右侧日志与服务检测 -->
         <div class="wizard-step" id="step4" data-step="4" style="display: none;">
+            <p class="confirm-step-desc">请核对下方配置无误后执行部署，或保存当前配置供下次使用。</p>
             <div class="confirm-layout">
-                <div class="confirm-left">
-                    <h2>配置清单</h2>
+                <section class="confirm-left" aria-labelledby="confirm-summary-title">
+                    <h2 id="confirm-summary-title" class="confirm-card-title">配置清单</h2>
                     <div id="configSummary" class="config-summary"></div>
-                    <div class="confirm-buttons">
-                        <button type="button" class="btn-primary" onclick="startDeploy()">开始部署</button>
+                    <div class="confirm-actions">
+                        <button type="button" class="btn-primary confirm-btn-deploy" onclick="startDeploy()">开始部署</button>
+                        <!-- 部署脚本按钮：生成一份可直接在目标服务器执行的部署脚本，供运维查看与复制 -->
+                        <button type="button" class="btn-secondary" style="margin-left: 8px;" onclick="generateDeployScript()">部署脚本</button>
                         <div class="config-manage-section">
-                            <div class="form-group">
-                                <label>配置名称：</label>
-                                <input type="text" id="configName" placeholder="请输入配置名称" style="width: 200px; padding: 8px;">
+                            <span class="config-manage-label">保存当前配置</span>
+                            <div class="config-manage-row">
+                                <input type="text" id="configName" class="config-name-input" placeholder="请输入配置名称" maxlength="64">
+                                <button type="button" class="btn-secondary" onclick="saveConfig()">保存配置</button>
                             </div>
-                            <button type="button" class="btn-secondary" onclick="saveConfig()">保存配置</button>
                         </div>
                     </div>
-                </div>
-                <div class="confirm-right">
-                    <h2>部署日志</h2>
+                </section>
+                <section class="confirm-right" aria-labelledby="confirm-log-title">
+                    <h2 id="confirm-log-title" class="confirm-card-title">
+                        部署日志
+                        <span id="serviceStatusBar" class="service-status-bar" aria-label="服务状态"></span>
+                    </h2>
                     <div id="logContainer" class="log-container"></div>
-                    <div class="service-check-section">
-                        <h3>服务检测</h3>
-                        <div class="form-group">
-                            <input type="number" id="checkPort" placeholder="端口号" min="1" max="65535">
-                            <button type="button" class="btn-primary" onclick="checkService()">检测服务</button>
-                        </div>
-                        <div id="checkResult" class="check-result"></div>
-                    </div>
-                </div>
+                </section>
             </div>
 
             <div class="wizard-buttons">
@@ -928,6 +1314,30 @@
 
     <script src="js/message.js"></script>
     <script src="js/deploy.js"></script>
+
+    <!-- 部署脚本弹窗：主页面隐藏，点击“部署脚本”按钮弹出显示 -->
+    <div id="deployScriptModalBackdrop" class="deploy-script-modal-backdrop" role="dialog" aria-modal="true" aria-label="部署脚本弹窗">
+        <div class="deploy-script-modal" role="document">
+            <div class="deploy-script-modal-header">
+                <div class="deploy-script-modal-title">部署脚本（Linux 示例）</div>
+                <button type="button" class="btn-secondary" onclick="closeDeployScriptModal()" aria-label="关闭弹窗">关闭</button>
+            </div>
+            <div class="deploy-script-modal-body">
+                <p class="confirm-step-desc" style="margin: 0 0 8px; font-size: 12px; color: #64748b;">
+                    脚本基于当前参数和 WAR 列表生成，适用于在目标 Linux 服务器上执行进行部署。请根据实际环境适当调整后再使用。
+                </p>
+                <textarea id="deployScriptText"
+                          class="deploy-script-text"
+                          readonly
+                          spellcheck="false"
+                          aria-label="部署脚本内容"></textarea>
+            </div>
+            <div class="deploy-script-modal-footer">
+                <button type="button" class="btn-secondary" onclick="copyDeployScript()">复制脚本</button>
+                <button type="button" class="btn-primary" onclick="closeDeployScriptModal()">完成</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 

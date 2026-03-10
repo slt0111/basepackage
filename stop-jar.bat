@@ -6,7 +6,7 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 REM 设置JAR文件名（与启动脚本保持一致）
-set JAR_NAME=war-deploy-tool-1.0.0.jar
+set JAR_NAME=deploy-tool-1.0.0.jar
 
 echo [信息] 正在查找运行中的Java进程...
 

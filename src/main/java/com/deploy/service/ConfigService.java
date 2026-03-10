@@ -2,43 +2,43 @@ package com.deploy.service;
 
 import com.deploy.model.DeployConfig;
 import com.deploy.util.FileUtil;
+import com.deploy.util.WarPathUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * 配置管理服务
- * 支持配置保存和加载
+ * 说明：配置目录与 wars 同级（JAR 同级或项目根下 configs），保存与读取均使用该目录。
  */
 @Service
 public class ConfigService {
 
-    private static final String CONFIG_DIR = "src/main/resources/configs";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 保存部署配置到资源目录
+     * 获取配置根目录（与 wars 同级）
+     */
+    private String getConfigDir() {
+        return WarPathUtil.getConfigsBaseDir().toFile().getAbsolutePath();
+    }
+
+    /**
+     * 保存部署配置到 configs 目录（与 wars 同级）
      * @param configName 配置名称
      * @param config 部署配置
      * @throws IOException IO异常
      */
     public void saveConfig(String configName, DeployConfig config) throws IOException {
-        // 确保配置目录存在
-        FileUtil.createDirectory(CONFIG_DIR);
-        
-        // 生成文件名（移除特殊字符）
+        String configDir = getConfigDir();
+        FileUtil.createDirectory(configDir);
+
         String fileName = sanitizeFileName(configName) + ".json";
-        String filePath = CONFIG_DIR + File.separator + fileName;
+        String filePath = configDir + File.separator + fileName;
         
         String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
         FileUtil.writeFileContent(filePath, json);
@@ -52,7 +52,7 @@ public class ConfigService {
     public DeployConfig loadConfig(String configName) {
         try {
             String fileName = sanitizeFileName(configName) + ".json";
-            String filePath = CONFIG_DIR + File.separator + fileName;
+            String filePath = getConfigDir() + File.separator + fileName;
             
             if (!FileUtil.fileExists(filePath)) {
                 return null;
@@ -71,7 +71,7 @@ public class ConfigService {
     public List<String> listConfigs() {
         List<String> configNames = new ArrayList<>();
         try {
-            File configDir = new File(CONFIG_DIR);
+            File configDir = WarPathUtil.getConfigsBaseDir().toFile();
             if (configDir.exists() && configDir.isDirectory()) {
                 File[] files = configDir.listFiles((dir, name) -> name.endsWith(".json"));
                 if (files != null) {

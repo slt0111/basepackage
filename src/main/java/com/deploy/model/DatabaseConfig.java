@@ -1,5 +1,6 @@
 package com.deploy.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
 /**
@@ -34,8 +35,9 @@ public class DatabaseConfig {
 
     // 保留以下字段以兼容旧配置（可选）
     /**
-     * 数据库地址
+     * 数据库地址（前端可能传 ip，用 @JsonAlias 兼容）
      */
+    @JsonAlias("ip")
     private String host;
 
     /**

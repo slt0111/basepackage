@@ -50,6 +50,11 @@ public class DeployConfig {
     private String tongWebDeployDir;
 
     /**
+     * 服务器 URL（IP+端口），用于替换 YML 中的 ${authurl}，如 http://10.200.58.167:8080
+     */
+    private String serverUrl;
+
+    /**
      * YML配置文件内容（key为应用类型：unified/cadre）
      */
     private Map<String, String> ymlConfigs;

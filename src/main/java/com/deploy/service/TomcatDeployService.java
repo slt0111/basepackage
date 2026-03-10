@@ -5,6 +5,8 @@ import com.deploy.model.PortConfig;
 import com.deploy.util.FileUtil;
 import com.deploy.util.PortUtil;
 import com.deploy.util.ProcessUtil;
+import com.deploy.util.WarConfigUtil;
+import com.deploy.util.WarPathUtil;
 import com.deploy.websocket.DeployLogWebSocket;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
@@ -20,14 +22,9 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 /**
  * Tomcat部署服务实现
@@ -146,9 +143,9 @@ public class TomcatDeployService {
         // 如果没有配置HTTP端口，使用默认值
         if (httpPort == null) {
             if ("unified".equals(appType)) {
-                httpPort = 8088; // 统一支撑默认端口
+                httpPort = 8111; // 统一支撑默认端口
             } else {
-                httpPort = 8099; // 干部应用默认端口
+                httpPort = 8222; // 干部应用默认端口
             }
             PortConfig httpConfig = new PortConfig();
             httpConfig.setName(portNamePrefix + "HTTP端口");
@@ -273,10 +270,12 @@ public class TomcatDeployService {
     /**
      * 复制所有相关的WAR包到webapps目录
      * 如果配置了yml文件，会先替换WAR包中的配置文件（只替换tyzc-api.war和gbgl.war）
+     * 说明：优先从外部 wars 目录（项目同级 wars 文件夹）读取 WAR 包，找不到时再回退到 classpath 内置 WAR，兼容老版本打包资源。
+     *
      * @param tomcatDir Tomcat目录
-     * @param appName 应用名称（tyzc或gbgl）
-     * @param appType 应用类型（unified或cadre）
-     * @param config 部署配置
+     * @param appName   应用名称（tyzc或gbgl）
+     * @param appType   应用类型（unified或cadre）
+     * @param config    部署配置
      * @throws IOException IO异常
      */
     private void copyWarFiles(String tomcatDir, String appName, String appType, DeployConfig config) throws IOException {
@@ -323,18 +322,26 @@ public class TomcatDeployService {
         
         // 遍历复制每个WAR包
         for (String warFile : appWarFiles) {
-            String fileName = warFile.contains("/") ? 
+            String fileName = warFile.contains("/") ?
                     warFile.substring(warFile.lastIndexOf("/") + 1) : warFile;
-            
-            String sourcePath = "";
+
+            // sourceWarPath：指向外部物理文件；sourceResourcePath：指向classpath 内置资源路径
             String sourceWarPath = null;
-            
-            // 查找源WAR包路径
+            String sourceResourcePath = null;
+
+            // 查找源WAR包路径：优先使用外部 wars 目录，其次回退到 classpath 资源，最后才使用配置中的绝对/相对路径
             if (config.getUseBuiltInWars() != null && config.getUseBuiltInWars()) {
-                // 使用内置WAR包
-                sourcePath = "wars/" + warFile;
+                // 使用“内置”WAR包时，优先从项目同级 wars 目录读取（支持运维在外部直接替换 WAR 文件）
+                java.nio.file.Path externalWarPath = WarPathUtil.getWarsBaseDir().resolve(warFile);
+                File externalWarFile = externalWarPath.toFile();
+                if (externalWarFile.exists()) {
+                    sourceWarPath = externalWarFile.getAbsolutePath();
+                } else {
+                    // 外部目录没有对应文件时，回退到打包在 JAR 内的 classpath 资源
+                    sourceResourcePath = "wars/" + warFile;
+                }
             } else {
-                // 使用用户选择的WAR包
+                // 使用用户选择的WAR包时，直接把配置值当作物理路径处理
                 File sourceFile = new File(warFile);
                 if (sourceFile.exists()) {
                     sourceWarPath = sourceFile.getAbsolutePath();
@@ -343,7 +350,7 @@ public class TomcatDeployService {
                     continue;
                 }
             }
-            
+
             // 目标WAR包路径
             String targetPath = webappsDir + File.separator + fileName;
             File targetFile = new File(targetPath);
@@ -365,21 +372,24 @@ public class TomcatDeployService {
             if (needReplaceYml) {
                 // 需要替换配置文件
                 DeployLogWebSocket.sendLog("检测到YML配置，正在替换WAR包中的配置文件: " + fileName);
-                
+
                 // 创建临时文件用于处理WAR包
                 File tempWarFile = File.createTempFile("war_replace_", ".war");
-                
+
                 try {
-                    // 复制源WAR包到临时文件
-                    if (config.getUseBuiltInWars() != null && config.getUseBuiltInWars()) {
-                        FileUtil.copyResourceToFile(sourcePath, tempWarFile.getAbsolutePath());
-                    } else {
+                    // 复制源WAR包到临时文件：优先使用物理文件，其次回退到 classpath 资源
+                    if (sourceWarPath != null) {
                         FileUtil.copyFile(sourceWarPath, tempWarFile.getAbsolutePath());
+                    } else if (sourceResourcePath != null) {
+                        FileUtil.copyResourceToFile(sourceResourcePath, tempWarFile.getAbsolutePath());
+                    } else {
+                        DeployLogWebSocket.sendLog("警告: 未找到可用的WAR源文件，跳过: " + fileName);
+                        continue;
                     }
-                    
+
                     // 替换WAR包中的配置文件（直接替换，不重新打包）
-                    replaceWarConfigFileDirect(tempWarFile.getAbsolutePath(), ymlConfig, fileName);
-                    
+                    WarConfigUtil.replaceWarConfigFileDirect(tempWarFile.getAbsolutePath(), ymlConfig, fileName);
+
                     // 将处理后的WAR包复制到目标目录
                     FileUtil.copyFile(tempWarFile.getAbsolutePath(), targetPath);
                     DeployLogWebSocket.sendLog("已复制WAR包（已替换配置文件）: " + fileName);
@@ -390,109 +400,45 @@ public class TomcatDeployService {
                     }
                 }
             } else {
-                // 不需要替换配置文件，直接复制
-                if (config.getUseBuiltInWars() != null && config.getUseBuiltInWars()) {
-                    FileUtil.copyResourceToFile(sourcePath, targetPath);
-                    DeployLogWebSocket.sendLog("已复制WAR包: " + fileName);
-                } else {
+                // 不需要替换配置文件，直接复制：同样优先使用外部物理文件，其次回退到 classpath 资源
+                if (sourceWarPath != null) {
                     FileUtil.copyFile(sourceWarPath, targetPath);
                     DeployLogWebSocket.sendLog("已复制WAR包: " + fileName);
+                } else if (sourceResourcePath != null) {
+                    FileUtil.copyResourceToFile(sourceResourcePath, targetPath);
+                    DeployLogWebSocket.sendLog("已复制WAR包: " + fileName);
+                } else {
+                    DeployLogWebSocket.sendLog("警告: 未找到可用的WAR源文件，跳过: " + fileName);
                 }
             }
+
+            // 拷贝到部署目录后解压 WAR 包，解压到与 WAR 同名的目录（如 tyzc-api.war -> webapps/tyzc-api/）
+            explodeWarToDir(webappsDir, fileName, targetPath);
         }
     }
 
     /**
-     * 直接替换WAR包中的配置文件（不解压重新打包）
-     * 使用ZipFile直接替换ZIP条目
-     * @param warPath WAR包路径
-     * @param ymlContent YML配置内容
-     * @param warFileName WAR包文件名（用于日志）
-     * @throws IOException IO异常
+     * 将已复制到部署目录的 WAR 包解压到同名目录（如 tyzc-api.war 解压为 tyzc-api/）
+     * 若已存在同名解压目录则先删除再解压，保证为最新内容。
+     *
+     * @param webappsDir webapps 目录路径
+     * @param fileName   WAR 文件名
+     * @param targetPath WAR 文件完整路径
      */
-    private void replaceWarConfigFileDirect(String warPath, String ymlContent, String warFileName) throws IOException {
-        DeployLogWebSocket.sendLog("正在替换WAR包中的配置文件: " + warFileName);
-        
-        // 配置文件路径：WEB-INF/classes/application-dev-dm.yml
-        String configEntryName = "WEB-INF/classes/application-dev-dm.yml";
-        
-        // 创建临时WAR文件
-        File warFile = new File(warPath);
-        File tempWarFile = new File(warPath + ".tmp");
-        
-        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(warFile);
-             ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempWarFile))) {
-            
-            // 遍历原WAR包中的所有条目
-            java.util.Enumeration<? extends ZipEntry> entries = zipFile.entries();
-            boolean configReplaced = false;
-            
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                
-                // 如果是目标配置文件，替换为新内容
-                if (entry.getName().equals(configEntryName)) {
-                    DeployLogWebSocket.sendLog("找到配置文件，正在替换: " + configEntryName);
-                    
-                    // 创建新的ZIP条目
-                    ZipEntry newEntry = new ZipEntry(configEntryName);
-                    zos.putNextEntry(newEntry);
-                    
-                    // 写入新的配置内容
-                    byte[] contentBytes = ymlContent.getBytes("UTF-8");
-                    zos.write(contentBytes);
-                    zos.closeEntry();
-                    
-                    configReplaced = true;
-                } else {
-                    // 复制其他条目
-                    ZipEntry newEntry = new ZipEntry(entry.getName());
-                    newEntry.setMethod(entry.getMethod());
-                    if (entry.getTime() != -1) {
-                        newEntry.setTime(entry.getTime());
-                    }
-                    if (entry.getSize() != -1) {
-                        newEntry.setSize(entry.getSize());
-                    }
-                    if (entry.getCrc() != -1) {
-                        newEntry.setCrc(entry.getCrc());
-                    }
-                    
-                    zos.putNextEntry(newEntry);
-                    
-                    // 复制文件内容
-                    try (java.io.InputStream is = zipFile.getInputStream(entry)) {
-                        byte[] buffer = new byte[8192];
-                        int length;
-                        while ((length = is.read(buffer)) > 0) {
-                            zos.write(buffer, 0, length);
-                        }
-                    }
-                    
-                    zos.closeEntry();
-                }
-            }
-            
-            // 如果配置文件不存在，需要添加
-            if (!configReplaced) {
-                DeployLogWebSocket.sendLog("配置文件不存在，正在添加: " + configEntryName);
-                ZipEntry newEntry = new ZipEntry(configEntryName);
-                zos.putNextEntry(newEntry);
-                byte[] contentBytes = ymlContent.getBytes("UTF-8");
-                zos.write(contentBytes);
-                zos.closeEntry();
-            }
-            
+    private void explodeWarToDir(String webappsDir, String fileName, String targetPath) throws IOException {
+        if (fileName == null || !fileName.endsWith(".war")) {
+            return;
         }
-        
-        // 替换原文件
-        if (warFile.delete() && tempWarFile.renameTo(warFile)) {
-            DeployLogWebSocket.sendLog("配置文件替换完成: " + configEntryName);
-        } else {
-            throw new IOException("替换WAR包文件失败");
+        String baseName = fileName.substring(0, fileName.length() - 4);
+        String explodedDir = webappsDir + File.separator + baseName;
+        File explodedDirFile = new File(explodedDir);
+        if (explodedDirFile.exists()) {
+            DeployLogWebSocket.sendLog("检测到已存在的解压目录: " + baseName + "，正在删除以进行重部署...");
+            FileUtil.deleteFile(explodedDir);
         }
+        FileUtil.unzipFile(targetPath, explodedDir);
+        DeployLogWebSocket.sendLog("已解压WAR包至: " + explodedDir);
     }
-
 
     /**
      * 修改server.xml端口配置
@@ -766,9 +712,74 @@ public class TomcatDeployService {
             DeployLogWebSocket.sendLog("警告: shutdown脚本不存在: " + shutdownScriptPath);
         }
         
-        // 方法2: 如果shutdown脚本失败，尝试通过端口查找并关闭进程（仅作为备用方案）
-        // 注意：这里不实现强制kill进程，因为可能影响其他服务
-        DeployLogWebSocket.sendLog("提示: 如果服务仍未关闭，请手动停止Tomcat服务");
+        // 方法2: 如果shutdown脚本失败，尝试通过端口强制关闭Tomcat进程（仅对当前配置端口生效）
+        // 说明：通过 lsof 根据端口号查找占用进程并执行 kill -9，避免旧实例占用端口影响重部署。
+        try {
+            forceKillTomcatByPorts(os, ports);
+        } catch (Exception e) {
+            DeployLogWebSocket.sendLog("警告: 通过端口强制关闭Tomcat进程失败: " + e.getMessage());
+            DeployLogWebSocket.sendLog("提示: 如果服务仍未关闭，请手动停止Tomcat服务");
+        }
+    }
+
+    /**
+     * 通过端口强制关闭Tomcat进程
+     * 说明：
+     * - 仅在非 Windows 系统上执行，Windows 环境仍建议手工停止服务；
+     * - 使用 lsof -ti:port | xargs kill -9 的方式按端口号杀死占用进程；
+     * - 仅对当前配置中的 HTTP 端口（或兜底的 8080）进行处理，降低误杀其他服务的风险。
+     *
+     * @param osType 操作系统类型
+     * @param ports  端口配置列表
+     */
+    private void forceKillTomcatByPorts(String osType, List<PortConfig> ports) throws Exception {
+        String os = osType != null ? osType : System.getProperty("os.name");
+        if (os.toLowerCase().contains("win")) {
+            DeployLogWebSocket.sendLog("提示: 当前为 Windows 环境，未自动执行强制 kill，请手动停止 Tomcat。");
+            return;
+        }
+
+        java.util.Set<Integer> targetPorts = new java.util.HashSet<>();
+        if (ports != null && !ports.isEmpty()) {
+            for (PortConfig portConfig : ports) {
+                String portType = portConfig.getType();
+                Integer port = portConfig.getPort();
+                if (portType != null && port != null &&
+                        ("HTTP".equalsIgnoreCase(portType) || "CONNECTOR".equalsIgnoreCase(portType))) {
+                    targetPorts.add(port);
+                }
+            }
+        }
+        // 如果未从配置中解析到端口，则兜底使用 8080
+        if (targetPorts.isEmpty()) {
+            targetPorts.add(8080);
+        }
+
+        for (Integer port : targetPorts) {
+            if (port == null) {
+                continue;
+            }
+            if (!PortUtil.isPortInUse(port)) {
+                continue;
+            }
+
+            DeployLogWebSocket.sendLog("尝试通过端口强制关闭 Tomcat 进程，端口: " + port);
+            // 使用 lsof 根据端口查找进程并强制 kill，-t 只输出 PID，-i:port 按端口筛选
+            String cmd = String.format("bash -c \"lsof -ti:%d | xargs -r kill -9\"", port);
+            try {
+                Process killProcess = ProcessUtil.startProcess(cmd, null);
+                ProcessUtil.waitForProcess(killProcess, 5000);
+            } catch (Exception e) {
+                DeployLogWebSocket.sendLog("警告: 通过端口 " + port + " 执行 kill 时发生异常: " + e.getMessage());
+            }
+
+            // 再次检测端口是否已释放
+            if (!PortUtil.isPortInUse(port)) {
+                DeployLogWebSocket.sendLog("端口 " + port + " 已释放，Tomcat 进程已被强制关闭。");
+            } else {
+                DeployLogWebSocket.sendLog("警告: 端口 " + port + " 仍被占用，请检查是否存在其他服务占用该端口。");
+            }
+        }
     }
 
     /**
@@ -788,12 +799,14 @@ public class TomcatDeployService {
         } else {
             // Linux系统使用startup.sh
             scriptPath = tomcatDir + File.separator + "bin" + File.separator + "startup.sh";
-            // 确保脚本有执行权限
+            // 确保bin目录下所有Shell脚本具有执行权限（避免startup.sh内部调用其他脚本如catalina.sh时因无权限失败）
             try {
-                Process chmodProcess = ProcessUtil.startProcess("chmod +x " + scriptPath, null);
+                String binDir = tomcatDir + File.separator + "bin";
+                String chmodCmd = String.format("chmod +x \"%s\"/*.sh", binDir);
+                Process chmodProcess = ProcessUtil.startProcess(chmodCmd, null);
                 chmodProcess.waitFor();
             } catch (Exception e) {
-                DeployLogWebSocket.sendLog("警告: 无法设置脚本执行权限: " + e.getMessage());
+                DeployLogWebSocket.sendLog("警告: 无法为 Tomcat bin 目录批量设置执行权限: " + e.getMessage());
             }
         }
 

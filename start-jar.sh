@@ -7,7 +7,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # 设置JAR文件名（根据实际打包后的文件名修改）
-JAR_NAME="war-deploy-tool-1.0.0.jar"
+JAR_NAME="deploy-tool-1.0.0.jar"
 
 # 自动查找JAR文件（按优先级顺序）
 # 1. 首先在脚本所在目录查找
@@ -81,24 +81,24 @@ if [ -f "$PID_FILE" ]; then
     fi
 fi
 
-# 检查端口是否被占用（默认8080端口）
-echo "[信息] 检查端口8080是否被占用..."
-if lsof -Pi :8080 -sTCP:LISTEN -t >/dev/null 2>&1 || netstat -tuln | grep -q ":8080 "; then
-    echo "[警告] 端口8080已被占用，启动可能会失败"
-    echo "请先停止占用该端口的程序，或修改application.yml中的端口配置"
-    read -p "是否继续启动? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
-fi
+# 检查端口是否被占用（默认8022端口，对应application.yml中的server.port）
+#echo "[信息] 检查端口8022是否被占用..."
+#if lsof -Pi :8022 -sTCP:LISTEN -t >/dev/null 2>&1 || netstat -tuln | grep -q ":8022 "; then
+#    echo "[警告] 端口8022已被占用，启动可能会失败"
+#    echo "请先停止占用该端口的程序，或修改application.yml中的端口配置"
+#    read -p "是否继续启动? (y/n): " -n 1 -r
+#    echo
+#    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+#        exit 1
+#    fi
+#fi
 
 # 启动应用
 echo "[信息] 正在启动应用..."
 echo "[信息] JAR文件: ${JAR_PATH}"
 echo "[信息] 日志文件: ${LOG_FILE}"
 echo "[信息] PID文件: ${PID_FILE}"
-echo "[信息] 访问地址: http://localhost:8080"
+echo "[信息] 访问地址: http://localhost:8022"
 echo ""
 echo "============================================"
 echo "启动中，请稍候..."

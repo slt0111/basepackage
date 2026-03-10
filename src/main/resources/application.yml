@@ -5,9 +5,15 @@ server:
 
 spring:
   application:
-    name: war-deploy-tool
+    name: deploy-tool
   resources:
     static-locations: classpath:/static
+  servlet:
+    multipart:
+      # 单个上传文件的最大大小（此处放宽到 200MB，满足大体积 WAR 包上传需求）
+      max-file-size: 500MB
+      # 整个请求（包括所有表单字段与文件）的最大大小，同步放宽到 200MB
+      max-request-size: 500MB
 
 logging:
   level:

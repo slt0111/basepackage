@@ -22,7 +22,7 @@ mvn clean package -s settings.xml -DskipTests
 if %errorlevel% equ 0 (
     echo.
     echo [成功] 构建完成！
-    echo [信息] jar包位置: target\war-deploy-tool-1.0.0.jar
+    echo [信息] jar包位置: target\deploy-tool-1.0.0.jar
 ) else (
     echo.
     echo [错误] 构建失败，请检查错误信息

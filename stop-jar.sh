@@ -11,7 +11,7 @@ LOG_DIR="${SCRIPT_DIR}/logs"
 PID_FILE="${LOG_DIR}/app.pid"
 
 # 设置JAR文件名（与启动脚本保持一致）
-JAR_NAME="war-deploy-tool-1.0.0.jar"
+JAR_NAME="deploy-tool-1.0.0.jar"
 
 echo "[信息] 正在停止应用..."
 

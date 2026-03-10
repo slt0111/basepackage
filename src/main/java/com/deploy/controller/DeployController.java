@@ -57,6 +57,72 @@ public class DeployController {
     }
 
     /**
+     * 检查TongWeb部署目录是否符合约定结构
+     * 说明：当前约定部署目录形如 /usr/local/TongWeb8.0.9.09/domains/domain1/deployment，
+     *      本接口会根据该目录层级回溯定位 TongWeb 安装根目录，并检查 bin 目录下是否存在 startd.sh / stopserver.sh。
+     *
+     * @param path 部署目录路径
+     * @return 检查结果（exists: true/false，binExists: true/false，scriptsValid: true/false）
+     */
+    @GetMapping("/tongweb/installDir/check")
+    public ResponseEntity<Map<String, Object>> checkTongWebInstallDir(@RequestParam("path") String path) {
+        Map<String, Object> result = new HashMap<>();
+
+        if (path == null || path.trim().isEmpty()) {
+            result.put("success", false);
+            result.put("message", "部署目录路径不能为空");
+            return ResponseEntity.badRequest().body(result);
+        }
+
+        File deployDir = new File(path);
+        if (!deployDir.exists() || !deployDir.isDirectory()) {
+            result.put("success", true);
+            result.put("exists", false);
+            result.put("binExists", false);
+            result.put("scriptsValid", false);
+            result.put("message", "部署目录不存在或不是目录: " + path);
+            return ResponseEntity.ok(result);
+        }
+
+        // 按 domains/domain1/deployment 层级回溯推导 TongWeb 安装根目录
+        File domain1Dir = deployDir.getParentFile();
+        File domainsDir = (domain1Dir != null ? domain1Dir.getParentFile() : null);
+        File tongWebHome = (domainsDir != null ? domainsDir.getParentFile() : null);
+
+        if (tongWebHome == null || !tongWebHome.exists() || !tongWebHome.isDirectory()) {
+            result.put("success", true);
+            result.put("exists", true);
+            result.put("binExists", false);
+            result.put("scriptsValid", false);
+            result.put("message", "未能根据部署目录推导出TongWeb安装目录，请确认目录层级是否为 domains/domain1/deployment。");
+            return ResponseEntity.ok(result);
+        }
+
+        File binDir = new File(tongWebHome, "bin");
+        boolean binExists = binDir.exists() && binDir.isDirectory();
+        File startScript = new File(binDir, "startd.sh");
+        File stopScript = new File(binDir, "stopserver.sh");
+        boolean scriptsValid = startScript.exists() && stopScript.exists();
+
+        result.put("success", true);
+        result.put("exists", true);
+        result.put("binExists", binExists);
+        result.put("scriptsValid", scriptsValid);
+        result.put("tongWebHome", tongWebHome.getAbsolutePath());
+        result.put("binDir", binExists ? binDir.getAbsolutePath() : null);
+
+        if (!binExists) {
+            result.put("message", "已找到部署目录，但未找到TongWeb bin目录，请确认安装目录结构是否正确。");
+        } else if (!scriptsValid) {
+            result.put("message", "已找到TongWeb bin目录，但缺少 startd.sh 或 stopserver.sh，请确认TongWeb安装是否完整。");
+        } else {
+            result.put("message", "TongWeb部署目录与安装结构检查通过。");
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * 开始部署（只使用资源目录下的WAR包）
      * @param config 部署配置
      * @return 响应结果

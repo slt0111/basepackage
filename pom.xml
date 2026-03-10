@@ -13,7 +13,7 @@
     </parent>
 
     <groupId>com.deploy</groupId>
-    <artifactId>war-deploy-tool</artifactId>
+    <artifactId>deploy-tool</artifactId>
     <version>1.0.0</version>
     <name>WAR Deploy Tool</name>
     <description>WAR包服务部署启动工具</description>
@@ -90,6 +90,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <!-- 开发环境使用的热部署工具，生产环境不要打进去 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional> <!-- 只在开发环境有效，避免打包到生产 -->
         </dependency>
     </dependencies>
 

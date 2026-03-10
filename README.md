@@ -74,7 +74,7 @@ chmod +x start.sh
 
 ### 4. 访问界面
 
-打开浏览器访问：http://localhost:8080
+打开浏览器访问：http://localhost:8022
 
 ## 使用说明
 
@@ -172,7 +172,7 @@ chmod +x stop.sh
 mvn clean package
 ```
 
-打包完成后，JAR文件位于 `target/war-deploy-tool-1.0.0.jar`
+打包完成后，JAR文件位于 `target/deploy-tool-1.0.0.jar`
 
 ### 2. 启动JAR服务
 
@@ -296,3 +296,8 @@ basepackage/
 
 内部使用
 
+## 常见问题
+执行 sh权限不够
+```bash
+chmod 744 /usr/local/delopy/start-jar.sh
+```

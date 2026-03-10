@@ -11,7 +11,7 @@ REM 移除末尾的反斜杠
 set SCRIPT_DIR=%SCRIPT_DIR:~0,-1%
 
 REM 设置JAR文件名（根据实际打包后的文件名修改）
-set JAR_NAME=war-deploy-tool-1.0.0.jar
+set JAR_NAME=deploy-tool-1.0.0.jar
 
 REM 自动查找JAR文件（按优先级顺序）
 REM 1. 首先在脚本所在目录查找
@@ -76,11 +76,11 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 set LOG_FILE=%LOG_DIR%\app-%date:~0,4%%date:~5,2%%date:~8,2%-%time:~0,2%%time:~3,2%%time:~6,2%.log
 set LOG_FILE=%LOG_FILE: =0%
 
-REM 检查端口是否被占用（默认8080端口）
-echo [信息] 检查端口8080是否被占用...
-netstat -ano | findstr ":8080" >nul
+REM 检查端口是否被占用（默认8022端口，对应application.yml中的server.port）
+echo [信息] 检查端口8022是否被占用...
+netstat -ano | findstr ":8022" >nul
 if %errorlevel% equ 0 (
-    echo [警告] 端口8080已被占用，启动可能会失败
+    echo [警告] 端口8022已被占用，启动可能会失败
     echo 请先停止占用该端口的程序，或修改application.yml中的端口配置
     echo.
     choice /C YN /M "是否继续启动"
@@ -91,7 +91,7 @@ REM 启动应用
 echo [信息] 正在启动应用...
 echo [信息] JAR文件: %JAR_PATH%
 echo [信息] 日志文件: %LOG_FILE%
-echo [信息] 访问地址: http://localhost:8080
+echo [信息] 访问地址: http://localhost:8022
 echo.
 echo ============================================
 echo 启动中，请稍候...
