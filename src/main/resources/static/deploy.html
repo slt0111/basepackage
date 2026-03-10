@@ -1002,6 +1002,56 @@
         body.deploy-page .script-log {
             border-radius: 10px;
         }
+
+        /* 帮助手册弹窗：与部署脚本弹窗风格保持一致，内嵌独立文档页面 */
+        body.deploy-page .deploy-help-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 9999;
+        }
+        body.deploy-page .deploy-help-modal {
+            width: min(1120px, 98vw);
+            max-height: 92vh;
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            box-shadow: 0 16px 48px rgba(15, 23, 42, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        body.deploy-page .deploy-help-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        body.deploy-page .deploy-help-modal-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        body.deploy-page .deploy-help-modal-body {
+            flex: 1;
+            overflow: hidden;
+            background: #e5e7eb;
+        }
+        body.deploy-page .deploy-help-modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 10px 16px;
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
+        }
     </style>
 </head>
 <body class="deploy-page">
@@ -1013,6 +1063,8 @@
                 <span class="deploy-nav-title">红云 · 运维工具台 · 一键部署</span>
             </div>
             <div class="deploy-nav-right">
+                <!-- 一键部署帮助手册入口：以弹窗形式展示文档中心页面 -->
+                <button type="button" class="btn-secondary" style="margin-right: 8px;" onclick="openDeployHelpModal()">一键部署帮助</button>
                 <a href="index.html" class="deploy-nav-link">返回首页</a>
             </div>
         </header>
@@ -1335,6 +1387,22 @@
             <div class="deploy-script-modal-footer">
                 <button type="button" class="btn-secondary" onclick="copyDeployScript()">复制脚本</button>
                 <button type="button" class="btn-primary" onclick="closeDeployScriptModal()">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 一键部署帮助手册弹窗：内嵌 deploy-help.html 文档中心页面 -->
+    <div id="deployHelpModalBackdrop" class="deploy-help-modal-backdrop" role="dialog" aria-modal="true" aria-label="一键部署帮助手册" style="display:none;">
+        <div class="deploy-help-modal" role="document">
+            <div class="deploy-help-modal-header">
+                <div class="deploy-help-modal-title">一键部署帮助手册</div>
+                <button type="button" class="btn-secondary" onclick="closeDeployHelpModal()" aria-label="关闭帮助手册">关闭</button>
+            </div>
+            <div class="deploy-help-modal-body" style="padding:0; height:100%;">
+                <iframe src="deploy-help.html" title="一键部署帮助手册" style="border:none; width:100%; height:100%;"></iframe>
+            </div>
+            <div class="deploy-help-modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeDeployHelpModal()">知道了</button>
             </div>
         </div>
     </div>

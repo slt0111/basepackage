@@ -152,7 +152,18 @@ function initWebSocket() {
     };
     
     ws.onmessage = function(event) {
-        addLog(event.data);
+        const msg = event.data || '';
+        addLog(msg);
+
+        // 监听后端部署日志，当检测到“部署完成”时再启动心跳轮询，避免在部署过程中提前检测
+        if (msg.indexOf('部署完成') !== -1) {
+            startHeartbeatPolling();
+        }
+        // 若出现“部署失败”，停止后续轮询并标记状态
+        if (msg.indexOf('部署失败') !== -1) {
+            stopHeartbeatPolling();
+            updateServiceStatusBar({ unified: 'error', cadre: 'error', message: '部署失败' });
+        }
     };
     
     ws.onerror = function(error) {
@@ -1319,8 +1330,8 @@ function startDeploy() {
     .then(data => {
         if (data.success) {
             addLog('部署任务已启动', 'success');
-            // 部署任务启动成功后，开始轮询检测业务服务心跳，直到成功或超出最大重试次数
-            startHeartbeatPolling();
+            // 部署任务启动后，等待后端日志中的“部署完成”信号再启动心跳轮询
+            resetHeartbeatState();
         } else {
             addLog('启动部署失败: ' + data.message, 'error');
             updateServiceStatusBar({ unified: 'error', cadre: 'error', message: '部署启动失败，未进行心跳检测' });
@@ -1402,6 +1413,36 @@ function closeDeployScriptModal() {
     if (!backdrop) return;
     backdrop.style.display = 'none';
 }
+
+// 打开一键部署帮助手册弹窗（内嵌独立文档页面）
+function openDeployHelpModal() {
+    const backdrop = document.getElementById('deployHelpModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+
+    // 首次绑定遮罩点击与 ESC 关闭事件
+    if (!backdrop.dataset.bound) {
+        backdrop.dataset.bound = '1';
+        backdrop.addEventListener('click', function (e) {
+            if (e && e.target === backdrop) {
+                closeDeployHelpModal();
+            }
+        });
+        window.addEventListener('keydown', function (e) {
+            if (e && e.key === 'Escape') {
+                closeDeployHelpModal();
+            }
+        });
+    }
+}
+
+// 关闭一键部署帮助手册弹窗
+function closeDeployHelpModal() {
+    const backdrop = document.getElementById('deployHelpModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'none';
+}
+
 
 // 构建 Linux 环境下的部署脚本文本
 // 说明：
@@ -1995,13 +2036,26 @@ let heartbeatAttempts = 0;
 const HEARTBEAT_INTERVAL_MS = 5000;
 const MAX_HEARTBEAT_ATTEMPTS = 60; // 最多轮询约 5 分钟
 
-function startHeartbeatPolling() {
-    // 重置轮询状态
+function resetHeartbeatState() {
     if (heartbeatTimer) {
         clearTimeout(heartbeatTimer);
         heartbeatTimer = null;
     }
     heartbeatAttempts = 0;
+    // 将状态重置为“未知”，但保留 UI 结构
+    updateServiceStatusBar({ unified: 'unknown', cadre: 'unknown' });
+}
+
+function stopHeartbeatPolling() {
+    if (heartbeatTimer) {
+        clearTimeout(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+}
+
+function startHeartbeatPolling() {
+    // 重置轮询状态
+    resetHeartbeatState();
     // 先稍作等待，再开始第一次检测
     heartbeatTimer = setTimeout(runHeartbeatCheckOnce, HEARTBEAT_INTERVAL_MS);
 }

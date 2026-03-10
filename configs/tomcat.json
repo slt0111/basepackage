@@ -1,0 +1,35 @@
+{
+  "installDir" : "/Users/lyous/dev/soft",
+  "osType" : null,
+  "middlewareType" : "Tomcat",
+  "ports" : null,
+  "databases" : [ {
+    "name" : "统一支撑",
+    "type" : "达梦",
+    "connectionString" : "jdbc:dm://192.168.183.102:5250",
+    "username" : "HY_ZGGL_FRAME",
+    "password" : "1qaz@WSX3edc",
+    "host" : "192.168.183.102:5250",
+    "port" : null,
+    "database" : null,
+    "extraParams" : null
+  }, {
+    "name" : "干部应用",
+    "type" : "达梦",
+    "connectionString" : "jdbc:dm://192.168.183.102:5250",
+    "username" : "HY_ZGGL_ZZGB",
+    "password" : "1qaz@WSX3edc",
+    "host" : "192.168.183.102:5250",
+    "port" : null,
+    "database" : null,
+    "extraParams" : null
+  } ],
+  "warFiles" : [ "tyzc/tyzc-api.war", "tyzc/tyzc.war", "gbgl/gbgl.war", "gbgl/gbgl-front.war" ],
+  "useBuiltInWars" : true,
+  "tongWebDeployDir" : "/Users/lyous/dev/soft",
+  "serverUrl" : "localhot:8080",
+  "ymlConfigs" : {
+    "unified" : "insigma:\n  sysconfigure:\n    defaultPassword: UserPw@123456\nsecurity:\n  cache:\n    enable: false\n  cors:\n    origins: http://localhost,http://localhost:8089,http://localhost:8090\n  repeat:\n    enable: true\n  validatecode:\n    enable: false\nspring:\n  autoconfigure:\n    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration, org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration, org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration\n  jta:\n    enabled: false\n  main:\n    allow-bean-definition-overriding: true\n  datasource:\n    type: com.alibaba.druid.pool.DruidDataSource\n    url: jdbc:dm://192.168.183.102:5250\n    username: HY_ZGGL_FRAME\n    password: 1qaz@WSX3edc\n    driver-class-name: dm.jdbc.driver.DmDriver\n    druid:\n      web-stat-filter:\n        enabled: false\n      stat-view-servlet:\n        enabled: false\n      filter:\n        config:\n          enabled: true\n        slf4j:\n          connection-log-enabled: false\n          data-source-log-enabled: false\n          enabled: true\n          result-set-log-enabled: false\n          statement-executable-sql-log-enable: true\n          statement-log-enabled: false\n        stat:\n          enabled: true\n          merge-sql: false\n          slow-sql-millis: 5000\n        wall:\n          config:\n            multi-statement-allow: true\n          enabled: false\n      initial-size: 5\n      max-active: 200\n      max-wait: 60000\n      min-idle: 5\n  jpa:\n    hibernate:\n      naming:\n        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl\n    properties:\n      hibernate:\n        dialect: org.hibernate.dialect.OracleDialect\n    show-sql: false\n  servlet: #请勿删除，去掉该层可能导致文件上传无法使用\n    multipart:\n      max-file-size: 4000MB\n      max-request-size: 4000MB\n      enabled: true #开启\n",
+    "cadre" : "insigma:\n  sysconfigure:\n    defaultPassword: 0\nsecurity:\n  cache:\n    enable: false\n  cors:\n    origins: http://localhost,http://localhost:8089,http://localhost:9100\n  free:\n    requests: /loginApp,/data-api,/sys/usermenu/getMenuList,/business/QGGWY/QGGWY_TJGL001/QGGWY_TJGL001_0032/StBatchSetRpt/getLogProcess,/ProcessStart,/ofdfile,/ProcessCompletion,/business/GWYGL/GWYGL_DJGL/GWYGL_DJGL_001_0001/GWYGL_PUBLIC_013_0001/OFDSignature/saveNewSignature,/business/ZZGBGL/ZZGBGL_YJXX/ZZGBGL_YJXX002/ZZGBGL_YJXX002_0003/DynamicEarlyWarning,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX001_0001,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX002_0002,/business/ZZGBGL_GRHX/ZZGBGL_GRHX002/ZZGBGL_GRHX002_0001\n  repeat:\n    enable: true\n  validatecode:\n    enable: false\nspring:\n  autoconfigure:\n    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration, org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration, org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration\n  jta:\n    enabled: false\n  jmx:\n    enabled: false\n    default-domain : gbgl\n  main:\n    allow-bean-definition-overriding: true\n  datasource:\n    type: com.alibaba.druid.pool.DruidDataSource\n    url: jdbc:dm://192.168.183.102:5250\n    username: HY_ZGGL_ZZGB\n    password: 1qaz@WSX3edc\n    driver-class-name: dm.jdbc.driver.DmDriver\n    druid:\n      web-stat-filter:\n        enabled: false\n      stat-view-servlet:\n        enabled: false\n      filter:\n        config:\n          enabled: true\n        slf4j:\n          connection-log-enabled: false\n          data-source-log-enabled: false\n          enabled: true\n          result-set-log-enabled: false\n          statement-executable-sql-log-enable: true\n          statement-log-enabled: false\n        stat:\n          enabled: true\n          merge-sql: false\n          slow-sql-millis: 5000\n        wall:\n          config:\n            multi-statement-allow: true\n          enabled: false\n      initial-size: 5\n      max-active: 1000\n      max-wait: 60000\n      min-idle: 5\n  jpa:\n    hibernate:\n      naming:\n        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl\n    properties:\n      hibernate:\n        dialect: org.hibernate.dialect.DmDialect\n    show-sql: true\n  servlet: #请勿删除，去掉该层可能导致文件上传无法使用\n    multipart:\n      max-file-size: 4000MB\n      max-request-size: 4000MB\n      enabled: true #开启\nschedule: #定时任务\n  switch_on: false\ncookie:\n  domain: localhost\nbase:\n  domain: http://localhost\nserver:\n  tomcat:\n    max-http-form-post-size: -1\nsso:\n  is-sso-open: true\n  app-name: ZZGBGL\n  auth-logon-page-root-url: http://localhot:8080/tyzc/#/login\n  auth-mode: direct\n  client-sso-index-url: index\n  auth-service-root-url: http://localhot:8080/tyzc-api\n  client-auth-class: com.insigma.common.OdinClientAuth\n  free-urls: /login,/data-api,/loginApp,/validateCode,/ProcessStart,/ofdfile,/ProcessCompletion,/business/GWYGL/GWYGL_DJGL/GWYGL_DJGL_001_0001/GWYGL_PUBLIC_013_0001/OFDSignature/saveNewSignature,/business/ZZGBGL/ZZGBGL_YJXX/ZZGBGL_YJXX002/ZZGBGL_YJXX002_0003/DynamicEarlyWarning,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX001_0001,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX002_0002,/business/ZZGBGL_GRHX/ZZGBGL_GRHX002/ZZGBGL_GRHX002_0001,/business/ZZGBGL/ZZGBGL_MZCP/ZZGBGL_MZCP001/ZZGBGL_MZCP001_0001\nsqlprocess:\n  devenvironment: true\nsyslog:\n  # 应用编码\n  app-code: ZZGBGL\n\n\nschnameBd: HY_GWYGL_BD\n\nhy:\n  runSort: true\n  runCheck: true\n  ownerIP: false\n  xms: \"-Xms512m -XX:PermSize=256M -XX:MaxPermSize=512M\"\n  locationHzbUpload: false # true：直接解压指定的hzb数据包，解压后的文件放到项目的temp中\n  locationHzbUNZIPFile: false # true：locationHzbUpload必须为true，直接读取解压后的文件夹里的文件。【注意】 需要手动复制相片到项目的HZBPHOTOS里面\n  checkIds: 6b3e77a448c511efb98000ff2da359b8,402881fe5ef0d4e2015ef0d5f545000b,ff8080818471a33e018471c3b1930000,\n  submitSize: 5000\n  queryDLR: false\n  yearEnd: 1\n  systemId: 1,U002,U003,U004\n  memberInit: false\n  zip: /,/help/,/help/JCK/,/help/TJXT/,/template/\n  jdk: nil,\n  path:\n    enable: true\n    hzb_path: d:/hzb/\n"
+  }
+}
