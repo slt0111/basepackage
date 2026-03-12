@@ -85,7 +85,7 @@ sso:
   client-sso-index-url: index
   auth-service-root-url: http://'${authurl}'/tyzc-api
   client-auth-class: com.insigma.common.OdinClientAuth
-  free-urls: /login,/data-api,/loginApp,/validateCode,/ProcessStart,/ofdfile,/ProcessCompletion,/business/GWYGL/GWYGL_DJGL/GWYGL_DJGL_001_0001/GWYGL_PUBLIC_013_0001/OFDSignature/saveNewSignature,/business/ZZGBGL/ZZGBGL_YJXX/ZZGBGL_YJXX002/ZZGBGL_YJXX002_0003/DynamicEarlyWarning,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX001_0001,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX002_0002,/business/ZZGBGL_GRHX/ZZGBGL_GRHX002/ZZGBGL_GRHX002_0001,/business/ZZGBGL/ZZGBGL_MZCP/ZZGBGL_MZCP001/ZZGBGL_MZCP001_0001
+  free-urls: /login,/data-api,/heartbeat,/loginApp,/validateCode,/ProcessStart,/ofdfile,/ProcessCompletion,/business/GWYGL/GWYGL_DJGL/GWYGL_DJGL_001_0001/GWYGL_PUBLIC_013_0001/OFDSignature/saveNewSignature,/business/ZZGBGL/ZZGBGL_YJXX/ZZGBGL_YJXX002/ZZGBGL_YJXX002_0003/DynamicEarlyWarning,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX001_0001,/business/ZZGBGL_GRHX/ZZGBGL_GRHX001/ZZGBGL_GRHX002_0002,/business/ZZGBGL_GRHX/ZZGBGL_GRHX002/ZZGBGL_GRHX002_0001,/business/ZZGBGL/ZZGBGL_MZCP/ZZGBGL_MZCP001/ZZGBGL_MZCP001_0001
 sqlprocess:
   devenvironment: true
 syslog:

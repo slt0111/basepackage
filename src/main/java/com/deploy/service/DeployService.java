@@ -1,6 +1,7 @@
 package com.deploy.service;
 
 import com.deploy.model.DeployConfig;
+import com.deploy.model.GlobalSettings;
 import com.deploy.websocket.DeployLogWebSocket;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,9 @@ public class DeployService {
     @Autowired
     private TongWebDeployService tongWebDeployService;
 
+    @Autowired
+    private GlobalSettingsService globalSettingsService;
+
     /**
      * 开始部署（异步执行）
      * @param config 部署配置
@@ -36,7 +40,11 @@ public class DeployService {
                 // 根据中间件类型选择部署服务
                 String middlewareType = config.getMiddlewareType();
                 if (middlewareType == null || middlewareType.isEmpty()) {
-                    middlewareType = "Tomcat"; // 默认使用Tomcat
+                    // 默认中间件类型：从“全局设置”读取（若未配置则回退 Tomcat）
+                    GlobalSettings settings = globalSettingsService.getSettings();
+                    middlewareType = (settings != null && settings.getDefaultMiddlewareType() != null)
+                            ? settings.getDefaultMiddlewareType()
+                            : "Tomcat";
                 }
 
                 switch (middlewareType.toUpperCase()) {

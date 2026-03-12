@@ -58,5 +58,14 @@ public class DeployConfig {
      * YML配置文件内容（key为应用类型：unified/cadre）
      */
     private Map<String, String> ymlConfigs;
+
+    /**
+     * Tomcat 专用 JDK 安装目录
+     * 说明：当中间件类型为 Tomcat 且在 Windows 上部署时，
+     *      如果当前运行环境的 JDK 版本非 17，则要求用户在前端手动填写一个 JDK17 安装目录，
+     *      后端在部署 Tomcat 时会将该路径写入对应实例的 bin/setclasspath.bat 中的 JAVA_HOME，
+     *      确保 Tomcat 使用符合要求的 JDK 版本启动。
+     */
+    private String tomcatJdkHome;
 }
 

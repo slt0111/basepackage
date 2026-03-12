@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,132 @@ public class DeployController {
 
     @Autowired
     private ServiceCheckService serviceCheckService;
+
+    /**
+     * 检查当前运行环境的 JDK 版本
+     * 说明：
+     * - 前端在开始部署 Tomcat 之前调用本接口；
+     * - 若当前 JDK 主版本号 >= 17，则可直接用于 Tomcat 部署；
+     * - 若小于 17（例如 1.8 / 11），则前端需引导用户手动输入 JDK17 安装目录，并在后续部署请求中传入 tomcatJdkHome。
+     */
+    @GetMapping("/java/check")
+    public ResponseEntity<Map<String, Object>> checkJavaVersion(
+            @RequestParam(value = "jdkHome", required = false) String jdkHome) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String javaExecutable;
+            if (jdkHome != null && !jdkHome.trim().isEmpty()) {
+                // 若传入了专用 JDK 路径，则优先使用该路径下的 java
+                File home = new File(jdkHome.trim());
+                File binJava = new File(new File(home, "bin"), "java.exe");
+                if (!binJava.exists()) {
+                    binJava = new File(new File(home, "bin"), "java");
+                }
+                javaExecutable = binJava.getAbsolutePath();
+            } else {
+                // 否则使用系统 PATH 中的 java
+                javaExecutable = "java";
+            }
+
+            // 1. 调用 java -version 获取版本信息（通常输出到 stderr）
+            Process process = new ProcessBuilder(javaExecutable, "-version").redirectErrorStream(true).start();
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.trim().isEmpty()) {
+                        output.append(line).append('\n');
+                    }
+                }
+            }
+            int exitCode = process.waitFor();
+
+            // 2. 解析版本号：优先从 java -version 输出中提取，其次回退到 System.getProperty("java.version")
+            String rawOutput = output.toString().trim();
+            String version = parseJavaVersion(rawOutput);
+            if (version == null || version.isEmpty()) {
+                version = System.getProperty("java.version");
+            }
+            if (version == null) {
+                version = "unknown";
+            }
+
+            boolean atLeast17 = isAtLeastJava17(version);
+
+            result.put("success", exitCode == 0 && atLeast17);
+            result.put("javaVersion", version);
+            result.put("rawOutput", rawOutput);
+            result.put("isJdk17", atLeast17);
+            result.put("message", atLeast17
+                    ? "当前 JDK 版本满足 Tomcat 部署要求（需要 JDK 17 或更高版本）"
+                    : "当前 JDK 版本不满足 Tomcat 部署要求（需要 JDK 17 或更高版本）");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("javaVersion", System.getProperty("java.version", "unknown"));
+            result.put("isJdk17", false);
+            result.put("message", "检测 JDK 版本失败: " + e.getMessage());
+            return ResponseEntity.status(500).body(result);
+        }
+    }
+
+    /**
+     * 从 java -version 输出中解析版本号字符串
+     * 示例输出：
+     *   java version "1.8.0_65"
+     *   openjdk version "17.0.10" 2024-01-16
+     */
+    private String parseJavaVersion(String rawOutput) {
+        if (rawOutput == null || rawOutput.isEmpty()) {
+            return null;
+        }
+        // 只关注第一行
+        String firstLine = rawOutput.split("\\r?\\n")[0];
+        int idxQuote = firstLine.indexOf('"');
+        if (idxQuote >= 0) {
+            int idxQuote2 = firstLine.indexOf('"', idxQuote + 1);
+            if (idxQuote2 > idxQuote) {
+                return firstLine.substring(idxQuote + 1, idxQuote2);
+            }
+        }
+        // 回退：尝试基于空格拆分
+        String[] parts = firstLine.split("\\s+");
+        for (String part : parts) {
+            if (part.matches("\\d+(\\.\\d+.*)?")) {
+                return part;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 判断给定的 Java 版本号是否满足 JDK 17 及以上
+     * 兼容版本格式：
+     *   - 1.8.0_65  => 主版本 8
+     *   - 11.0.23   => 主版本 11
+     *   - 17.0.10   => 主版本 17
+     */
+    private boolean isAtLeastJava17(String version) {
+        if (version == null || version.isEmpty()) {
+            return false;
+        }
+        try {
+            int major;
+            if (version.startsWith("1.")) {
+                // 旧格式：1.x.y
+                String[] parts = version.split("\\.");
+                major = (parts.length > 1) ? Integer.parseInt(parts[1]) : 1;
+            } else {
+                // 新格式：17.0.10 / 11.0.23 等
+                String[] parts = version.split("\\.");
+                major = Integer.parseInt(parts[0]);
+            }
+            return major >= 17;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
 
     /**
      * 检查安装目录是否存在

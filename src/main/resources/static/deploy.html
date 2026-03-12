@@ -66,9 +66,52 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            background: #f8fafc;
-            border-right: 1px solid #e2e8f0;
+            /* 左侧导航背景：更柔和的渐变层次，弱化“框线感” */
+            /*background: linear-gradient(180deg, rgba(248, 250, 252, 1) 0%, rgba(241, 245, 249, 1) 55%, rgba(248, 250, 252, 1) 100%);*/
+            /* 去掉整体框边线条：不再使用右侧分割线 */
+            border-right: none;
             padding: 12px 0 12px 0; /* 减少左侧栏上下留白，让整体高度更多分配给内容滚动区 */
+        }
+        /* 左侧导航增强：步骤区标题与进度（提升信息密度与引导感） */
+        .deploy-sidebar .steps-header {
+            margin: 0 12px 10px;
+            padding: 10px 10px 10px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(219, 234, 254, 0.65), rgba(236, 253, 245, 0.55));
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+        .deploy-sidebar .steps-header-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .deploy-sidebar .steps-header-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: 0.02em;
+        }
+        .deploy-sidebar .steps-header-meta {
+            font-size: 12px;
+            color: #475569;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .deploy-sidebar .steps-progress {
+            margin-top: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.25);
+            overflow: hidden;
+        }
+        .deploy-sidebar .steps-progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 999px;
+            /* 注：与主按钮风格一致的蓝紫渐变，避免过于单调 */
+            background: linear-gradient(90deg, #3b82f6, #6366f1);
+            transition: width 180ms ease;
         }
         /* 加载已有配置：标题单独一行（加载配置：），下方一行下拉+按钮（左侧栏） */
         .deploy-sidebar .config-load-section {
@@ -129,7 +172,7 @@
         .deploy-sidebar .wizard-steps {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px; /* 注：卡片化后略增间距，避免视觉粘连 */
             margin: 0;
             padding: 0 12px 0 16px;
             border: none;
@@ -146,7 +189,8 @@
             top: 40px;
             bottom: 40px;
             width: 2px;
-            background: rgba(148, 163, 184, 0.25);
+            /* 连接线更柔和：降低存在感 */
+            background: rgba(148, 163, 184, 0.18);
             pointer-events: none;
             z-index: 0;
         }
@@ -154,26 +198,36 @@
             flex: none;
             text-align: left;
             display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 10px;
+            align-items: flex-start; /* 注：允许标题+描述两行排版 */
+            gap: 12px;
+            padding: 10px 10px;
             position: relative;
             border-radius: 12px;
             cursor: pointer;
-            /* 注：极简安装向导风格：弱卡片感，不要条条框框 */
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
-            border: none;
-            background: transparent;
+            /* 注：卡片化导航（减少单调空白，同时保持轻量） */
+            transition: background-color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(255, 255, 255, 0.55);
         }
         .deploy-sidebar .step-item:hover {
-            background: rgba(15, 23, 42, 0.04);
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(59, 130, 246, 0.28);
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+        }
+        /* 键盘可达性：聚焦态可见（提升交互质量） */
+        .deploy-sidebar .step-item:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22), 0 10px 22px rgba(15, 23, 42, 0.08);
+            border-color: rgba(59, 130, 246, 0.5);
         }
         .deploy-sidebar .step-item.active {
-            background: rgba(59, 130, 246, 0.08);
-            box-shadow: none;
+            background: rgba(219, 234, 254, 0.55);
+            border-color: rgba(59, 130, 246, 0.45);
+            box-shadow: 0 12px 26px rgba(29, 78, 216, 0.10);
         }
         .deploy-sidebar .step-item.completed:not(.active) {
-            background: transparent;
+            background: rgba(236, 253, 245, 0.45);
+            border-color: rgba(16, 185, 129, 0.35);
         }
         /* 单个步骤上的旧连接线隐藏，避免与统一纵向线重复 */
         .deploy-sidebar .step-item:not(:last-child)::after {
@@ -182,10 +236,11 @@
         .deploy-sidebar .step-connector {
             display: none;
         }
-        .deploy-sidebar .step-number {
+        /* 注：更高优先级覆盖 body.deploy-page .step-number（避免被后置统一样式重置尺寸） */
+        body.deploy-page .deploy-sidebar .step-number {
             flex-shrink: 0;
-            width: 36px;
-            height: 36px;
+            width: 34px !important;
+            height: 34px !important;
             font-size: 14px;
             display: inline-flex;
             align-items: center;
@@ -193,11 +248,65 @@
         }
         .deploy-sidebar .step-title {
             /* 注：覆盖全局 body.deploy-page .step-title（否则字号会被压回 12px） */
-            font-size: 17px !important;
+            font-size: 15px !important; /* 注：左栏更紧凑，避免显得“空” */
             line-height: 1.3;
             flex: 1;
             min-width: 0;
             color: #0f172a;
+        }
+        /* 步骤内容：标题行 + 描述 + 状态徽标（丰富信息但不喧宾夺主） */
+        .deploy-sidebar .step-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding-top: 1px;
+        }
+        .deploy-sidebar .step-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-width: 0;
+        }
+        .deploy-sidebar .step-desc {
+            font-size: 12px;
+            line-height: 1.35;
+            color: #64748b;
+            /* 注：两行展示且不省略——允许自然换行，必要时高度自增 */
+            white-space: normal;
+            overflow: visible;
+            word-break: break-word;
+            min-height: calc(1.35em * 2);
+        }
+        /* 步骤小图标：直接替换原数字圆点，统一大小与风格 */
+        .deploy-sidebar .step-icon {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(226, 232, 240, 0.65);
+            color: #475569;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+        }
+        .deploy-sidebar .step-item.active .step-icon {
+            background: rgba(219, 234, 254, 0.85);
+            color: #1d4ed8;
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+        .deploy-sidebar .step-item.completed .step-icon {
+            background: rgba(236, 253, 245, 0.9);
+            color: #047857;
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+        .deploy-sidebar .step-icon svg {
+            width: 16px;
+            height: 16px;
+            display: block;
         }
         /* 右侧：内容区，仅此区域内部滚动，无整页滚动 */
         .deploy-main {
@@ -254,6 +363,16 @@
         .deploy-nav-link:hover {
             background: rgba(191, 219, 254, 1);
             color: #1e40af;
+        }
+        /* 一键部署帮助：与返回首页区分，使用绿色系 */
+        .deploy-nav-link-help {
+            background: rgba(34, 197, 94, 0.18);
+            color: #15803d;
+            border-color: rgba(34, 197, 94, 0.45);
+        }
+        .deploy-nav-link-help:hover {
+            background: rgba(34, 197, 94, 0.28);
+            color: #166534;
         }
         .deploy-content {
             max-width: 100%;
@@ -395,7 +514,7 @@
         body.deploy-page .wizard-steps {
             margin-bottom: 20px;
             padding: 12px 0; /* 收紧步骤列表上下内边距，避免占用过多垂直空间 */
-            border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+            /*border-bottom: 1px solid rgba(148, 163, 184, 0.25);*/
         }
 
         /* 步骤内容区：不设最小高度，由内容决定，超出则在右侧区域内滚动 */
@@ -534,13 +653,146 @@
             background: #f8fafc;
             border: 1px solid #e2e8f0;
         }
+        /* WAR 管理布局增强：两列卡片（移动端自动一列） */
+        body.deploy-page .war-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+        @media (max-width: 980px) {
+            body.deploy-page .war-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        /* WAR 卡片头部：标题 + 辅助说明（更像“产品化”模块头） */
+        body.deploy-page .war-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        body.deploy-page .war-card-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.2;
+        }
+        body.deploy-page .war-card-subtitle {
+            margin: 4px 0 0;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        /* 上传条：输入 + 按钮紧凑对齐 */
+        body.deploy-page .war-upload-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        /* 上传组：label 左对齐且不占用 form-group 的固定 label 宽度 */
+        body.deploy-page .war-upload-group {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        body.deploy-page .war-upload-group label {
+            width: auto;
+            min-width: 0;
+            text-align: left;
+            margin: 0;
+            color: #475569;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        /* 上传按钮：局部美化，不影响全局 btn-secondary（删除按钮仍沿用原样式） */
+        body.deploy-page .btn-war-upload {
+            padding: 9px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(249, 115, 22, 0.35);
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.92), rgba(234, 88, 12, 0.92));
+            color: #fff;
+            font-weight: 600;
+            box-shadow: 0 8px 18px rgba(249, 115, 22, 0.22);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+            cursor: pointer;
+        }
+        body.deploy-page .btn-war-upload:hover {
+            transform: translateY(-0.5px);
+            box-shadow: 0 10px 22px rgba(249, 115, 22, 0.28);
+            opacity: 0.98;
+        }
+        body.deploy-page .btn-war-upload:active {
+            transform: translateY(0);
+            box-shadow: 0 6px 14px rgba(249, 115, 22, 0.18);
+        }
+        body.deploy-page .btn-war-upload:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22), 0 10px 22px rgba(249, 115, 22, 0.22);
+        }
+        /* WAR 行元信息（大小/修改时间） */
+        body.deploy-page .war-row-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+        body.deploy-page .war-row-meta {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.2;
+        }
+        body.deploy-page .war-upload-row input[type="file"] {
+            flex: 1;
+            min-width: 0;
+        }
+        /* 列表容器：固定最大高度，避免页面过长；滚动更清晰 */
         body.deploy-page .war-list {
             border-radius: 10px;
             border: 1px solid rgba(148, 163, 184, 0.4);
+            background: rgba(255, 255, 255, 0.75);
+            max-height: 260px;
+            overflow: auto;
         }
         body.deploy-page .war-list li {
-            padding: 10px 14px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
         }
+        body.deploy-page .war-list li span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #0f172a;
+            font-weight: 500;
+        }
+        /* 删除按钮更小更稳（沿用 btn-secondary 体系，仅做尺寸微调） */
+        body.deploy-page .war-list li .btn-secondary {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        /* 空态/加载态：弱化显示 */
+        body.deploy-page .war-list li.war-muted {
+            justify-content: flex-start;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        body.deploy-page .war-list li.war-muted span {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        /* 注：`.war-list` 与 `.war-list li` 的主体样式已在上方定义，这里不再保留空规则集 */
 
         /* YML 配置区：紧凑 + 标签切换（统一支撑 / 干部应用） */
         body.deploy-page .yml-config-section {
@@ -868,6 +1120,22 @@
             gap: 6px;
             vertical-align: middle;
         }
+        /* 心跳手动刷新按钮：与状态徽标同一行，小号次要按钮 */
+        body.deploy-page .btn-heartbeat-refresh {
+            margin-left: 8px;
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #475569;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        body.deploy-page .btn-heartbeat-refresh:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
         body.deploy-page .service-status-pill {
             display: inline-flex;
             align-items: center;
@@ -974,7 +1242,7 @@
             justify-content: flex-end; /* 按钮靠右显示，符合操作区习惯 */
             gap: 12px;
             padding: 6px 24px 4px; /* 再次收紧上下 / 左右内边距，使操作栏更贴近底部并释放更多高度给右侧内容 */
-            border-top: 1px solid #e2e8f0;
+            /*border-top: 1px solid #e2e8f0;*/
             background: #fff;
         }
         body.deploy-page .deploy-actions button:disabled {
@@ -1014,8 +1282,9 @@
             z-index: 9999;
         }
         body.deploy-page .deploy-help-modal {
-            width: min(1120px, 98vw);
-            max-height: 92vh;
+            width: min(1280px, 95vw);
+            height: 90vh;
+            max-height: 90vh;
             background: #fff;
             border-radius: 14px;
             border: 1px solid rgba(148, 163, 184, 0.6);
@@ -1052,6 +1321,64 @@
             border-top: 1px solid #e2e8f0;
             background: #fff;
         }
+
+        /* ========== 字段说明小图标（hover 显示浮窗）========== */
+        /* 说明：用于“参数配置”等表单字段旁的问号图标，鼠标移入/键盘聚焦时显示说明浮窗 */
+        /* 注意：不要改变 label 的原有布局（保持原先左侧对齐方式），仅在图标本身做微调 */
+        body.deploy-page .field-help {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            margin-left: 6px; /* 保持与原 label 排版一致的间距 */
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.9);
+            background: rgba(248, 250, 252, 0.95);
+            color: #475569;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: help;
+            position: relative; /* 为浮窗定位提供锚点 */
+            user-select: none;
+            vertical-align: middle;
+            /* 说明：浮窗改为 body 下的 fixed 浮层（JS 控制），避免被 overflow 裁剪 */
+        }
+        /* 键盘可达性：聚焦态高亮 */
+        body.deploy-page .field-help:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+            border-color: rgba(59, 130, 246, 0.6);
+        }
+
+        /* 全局提示浮层：挂载到 body，fixed 定位，避免被任意滚动容器裁剪 */
+        body.deploy-page .global-tooltip {
+            position: fixed;
+            z-index: 20000;
+            width: 260px; /* 固定宽度 */
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.95);
+            color: #e2e8f0;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.4;
+            text-align: left; /* 内容左对齐 */
+            box-shadow: 0 14px 40px rgba(15, 23, 42, 0.28);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            white-space: pre-wrap;
+            pointer-events: none; /* 不抢鼠标事件 */
+        }
+        body.deploy-page .global-tooltip::before {
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: -10px;
+            border: 6px solid transparent;
+            border-bottom-color: rgba(15, 23, 42, 0.95);
+        }
     </style>
 </head>
 <body class="deploy-page">
@@ -1063,8 +1390,10 @@
                 <span class="deploy-nav-title">红云 · 运维工具台 · 一键部署</span>
             </div>
             <div class="deploy-nav-right">
-                <!-- 一键部署帮助手册入口：以弹窗形式展示文档中心页面 -->
-                <button type="button" class="btn-secondary" style="margin-right: 8px;" onclick="openDeployHelpModal()">一键部署帮助</button>
+                <!-- 一键部署帮助手册入口：样式与返回首页一致 -->
+                <a href="javascript:void(0)" class="deploy-nav-link deploy-nav-link-help" onclick="openDeployHelpModal(); return false;">一键部署帮助</a>
+                <!-- 全局设置入口：用于配置系统内置默认值（端口/默认中间件/连接串模板等） -->
+                <a href="javascript:void(0)" class="deploy-nav-link" onclick="openGlobalSettingsModal(); return false;">全局设置</a>
                 <a href="index.html" class="deploy-nav-link">返回首页</a>
             </div>
         </header>
@@ -1085,31 +1414,105 @@
                     </div>
                 </div>
                 <!-- 部署向导步骤指示器（左侧竖排） -->
+                <!-- 步骤区标题 + 进度：增强引导与信息密度（避免左侧过于单调） -->
+                <div class="steps-header" aria-label="部署步骤进度">
+                    <div class="steps-header-title-row">
+                        <div class="steps-header-title">部署步骤</div>
+                        <!-- 注：数值由前端随步骤切换更新 -->
+                        <div class="steps-header-meta" id="sidebarStepMeta">1 / 5</div>
+                    </div>
+                    <div class="steps-progress" aria-hidden="true">
+                        <div class="steps-progress-fill" id="sidebarProgressFill"></div>
+                    </div>
+                </div>
                 <div class="wizard-steps">
                     <!-- 步骤导航：基础配置+数据库配置合并为“参数配置” -->
-                    <div class="step-item active" data-step="1">
-                        <div class="step-number">1</div>
-                        <div class="step-title">参数配置</div>
+                    <div class="step-item active" data-step="1" tabindex="0">
+                        <div class="step-icon" aria-hidden="true" title="参数配置">
+                            <!-- 注：SVG 图标（不使用 emoji），便于快速识别步骤类型 -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 21v-7"></path>
+                                <path d="M4 10V3"></path>
+                                <path d="M12 21v-9"></path>
+                                <path d="M12 8V3"></path>
+                                <path d="M20 21v-5"></path>
+                                <path d="M20 12V3"></path>
+                                <path d="M2 14h4"></path>
+                                <path d="M10 8h4"></path>
+                                <path d="M18 16h4"></path>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title-row">
+                                <div class="step-title">参数配置</div>
+                            </div>
+                            <div class="step-desc" title="填写部署目录、中间件类型以及统一支撑/干部库连接信息">填写部署目录、中间件类型以及统一支撑/干部库连接信息</div>
+                        </div>
                         <div class="step-connector"></div>
                     </div>
-                    <div class="step-item" data-step="2">
-                        <div class="step-number">2</div>
-                        <div class="step-title">WAR包管理</div>
+                    <div class="step-item" data-step="2" tabindex="0">
+                        <div class="step-icon" aria-hidden="true" title="WAR包管理">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <path d="M3.27 6.96L12 12l8.73-5.04"></path>
+                                <path d="M12 22V12"></path>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title-row">
+                                <div class="step-title">WAR包管理</div>
+                            </div>
+                            <div class="step-desc" title="管理统一支撑和干部应用的 WAR 包，支持在线上传与删除">管理统一支撑和干部应用的 WAR 包，支持在线上传与删除</div>
+                        </div>
                         <div class="step-connector"></div>
                     </div>
-                    <div class="step-item" data-step="3">
-                        <div class="step-number">3</div>
-                        <div class="step-title">YML配置</div>
+                    <div class="step-item" data-step="3" tabindex="0">
+                        <div class="step-icon" aria-hidden="true" title="YML配置">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <path d="M14 2v6h6"></path>
+                                <path d="M16 13H8"></path>
+                                <path d="M16 17H8"></path>
+                                <path d="M10 9H8"></path>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title-row">
+                                <div class="step-title">YML配置</div>
+                            </div>
+                            <div class="step-desc" title="基于当前部署配置生成对应 YML 文件，在线浏览校对占位符替换结果">基于当前部署配置生成对应 YML 文件，在线浏览校对占位符替换结果</div>
+                        </div>
                         <div class="step-connector"></div>
                     </div>
-                    <div class="step-item" data-step="4">
-                        <div class="step-number">4</div>
-                        <div class="step-title">确认配置</div>
+                    <div class="step-item" data-step="4" tabindex="0">
+                        <div class="step-icon" aria-hidden="true" title="确认配置">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 11l3 3L22 4"></path>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title-row">
+                                <div class="step-title">确认配置</div>
+                            </div>
+                            <div class="step-desc" title="查看部署摘要与关键参数，一键发起部署并实时查看部署日志">查看部署摘要与关键参数，一键发起部署并实时查看部署日志</div>
+                        </div>
                         <div class="step-connector"></div>
                     </div>
-                    <div class="step-item" data-step="5">
-                        <div class="step-number">5</div>
-                        <div class="step-title">数据初始化</div>
+                    <div class="step-item" data-step="5" tabindex="0">
+                        <div class="step-icon" aria-hidden="true" title="数据初始化">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
+                                <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"></path>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title-row">
+                                <div class="step-title">数据初始化</div>
+                            </div>
+                            <div class="step-desc" title="仅执行数据初始化脚本，查看日志并通过心跳检测确认服务可用">仅执行数据初始化脚本，查看日志并通过心跳检测确认服务可用</div>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -1125,7 +1528,11 @@
 
             <!-- 部署目录：供 Tomcat / TongWeb 统一使用；受浏览器安全限制，可能需要用户手工补全绝对路径 -->
             <div class="form-group">
-                <label for="installDir">部署目录：</label>
+                <label for="installDir">
+                    部署目录
+                    <!-- 说明：字段帮助图标，鼠标移入显示浮窗 -->
+                    <span class="field-help" tabindex="0" aria-label="部署目录说明" data-tip="用于安装/解压 Tomcat 或部署 TongWeb WAR 的目标目录。\n示例：Windows 填 D:\\deploy；Linux 填 /opt/deploy。\n若选择 TongWeb，本目录会校验是否符合 TongWeb 约定结构。">?</span>
+                </label>
                 <div style="display:flex; gap:10px; width:100%; align-items:center;">
                     <input type="text" id="installDir" placeholder="例如: D:\deploy 或 /opt/deploy" required style="flex:1; min-width:0;">
                     <button type="button" class="btn-secondary" onclick="checkInstallDir()" style="flex-shrink:0;">检查目录</button>
@@ -1134,7 +1541,11 @@
 
             <!-- 中间件类型配置：保持与数据库IP同一层级，方便快速浏览与填写 -->
             <div class="form-group">
-                <label>中间件类型：</label>
+                <label>
+                    中间件类型
+                    <!-- 说明：Tomcat/TongWeb 不同会影响端口规则、authurl 生成与部署脚本 -->
+                    <span class="field-help" tabindex="0" aria-label="中间件类型说明" data-tip="选择部署目标中间件。\nTomcat：工具会按配置部署到两套 Tomcat 实例，并按“全局设置”的端口规则做心跳检测。\nTongWeb：会校验目录结构，并使用 serverUrl 原样进行心跳/认证地址拼接。">?</span>
+                </label>
                 <select id="middlewareType">
                     <option value="Tomcat">Tomcat</option>
                     <option value="TongWeb">TongWeb</option>
@@ -1143,13 +1554,21 @@
 
             <!-- 数据库IP配置：从原“数据库基础配置”区块上移，与中间件类型处于同层级 -->
             <div class="form-group">
-                <label>数据库IP：</label>
+                <label>
+                    数据库IP
+                    <!-- 说明：当前向导默认两套库共用同一 IP；连接串由全局设置的达梦模板拼接 -->
+                    <span class="field-help" tabindex="0" aria-label="数据库IP说明" data-tip="统一支撑与干部应用默认共用同一个数据库 IP。\n连接串会按“全局设置”的达梦模板拼接：prefix + IP + suffix。">?</span>
+                </label>
                 <input type="text" id="db-ip-common" placeholder="例如: 10.200.58.67">
             </div>
 
             <!-- 服务器 URL：IP+端口，用于替换 YML 中的 authurl（如干部应用 sso 登录地址前缀） -->
             <div class="form-group">
-                <label>服务器 URL：</label>
+                <label>
+                    服务器 URL
+                    <!-- 说明：用于心跳检测与 YML ${authurl} 替换；Tomcat 模式下端口可被全局设置覆盖 -->
+                    <span class="field-help" tabindex="0" aria-label="服务器URL说明" data-tip="用于两件事：\n1) 生成/替换 YML 中的 ${authurl}\n2) 部署完成后的服务心跳检测\nTomcat 模式下会按“全局设置”覆盖端口；TongWeb 模式下会使用你填写的端口。">?</span>
+                </label>
                 <input type="text" id="serverUrl" placeholder="例如: http://10.200.58.167:8080">
             </div>
 
@@ -1158,11 +1577,19 @@
                 <h3>统一支撑数据库</h3>
                 <div class="database-item">
                     <div class="form-group">
-                        <label>数据库用户名：</label>
+                        <label>
+                            数据库用户名
+                            <!-- 说明：仅用于生成 YML 与测试连接；不会在前端长期保存 -->
+                            <span class="field-help" tabindex="0" aria-label="统一支撑用户名说明" data-tip="用于测试数据库连接与生成 YML 配置（${username}）。\n如需长期复用，可在“确认配置”里保存为配置模板。">?</span>
+                        </label>
                         <input type="text" id="db-user-unified" placeholder="用户名" value="HY_ZGGL_FRAME">
                     </div>
                     <div class="form-group">
-                        <label>数据库密码：</label>
+                        <label>
+                            数据库密码
+                            <!-- 说明：用于生成 YML 与测试连接 -->
+                            <span class="field-help" tabindex="0" aria-label="统一支撑密码说明" data-tip="用于测试数据库连接与生成 YML 配置（${password}）。\n页面不做明文持久化；保存配置时会随配置一起保存到本地配置文件。">?</span>
+                        </label>
                         <!-- 密码输入：图标绝对定位在输入框内部最右侧，参考 Element show-password 示意图 -->
                         <div class="db-password-wrapper">
                             <input type="password" id="db-pwd-unified" placeholder="密码">
@@ -1179,11 +1606,19 @@
                 <h3>干部应用数据库</h3>
                 <div class="database-item">
                     <div class="form-group">
-                        <label>数据库用户名：</label>
+                        <label>
+                            数据库用户名
+                            <!-- 说明：用于生成干部应用的 YML 与测试连接 -->
+                            <span class="field-help" tabindex="0" aria-label="干部应用用户名说明" data-tip="用于测试数据库连接与生成干部应用 YML 配置（${username}）。\n默认与统一支撑共用同一个数据库 IP。">?</span>
+                        </label>
                         <input type="text" id="db-user-cadre" placeholder="用户名" value="HY_ZGGL_ZZGB">
                     </div>
                     <div class="form-group">
-                        <label>数据库密码：</label>
+                        <label>
+                            数据库密码
+                            <!-- 说明：用于生成干部应用的 YML 与测试连接 -->
+                            <span class="field-help" tabindex="0" aria-label="干部应用密码说明" data-tip="用于测试数据库连接与生成干部应用 YML 配置（${password}）。\n建议先点“测试连接”，成功后再进入下一步生成 YML。">?</span>
+                        </label>
                         <!-- 密码输入：图标绝对定位在输入框内部最右侧，参考 Element show-password 示意图 -->
                         <div class="db-password-wrapper">
                             <input type="password" id="db-pwd-cadre" placeholder="密码">
@@ -1203,44 +1638,51 @@
         <!-- 步骤2：WAR包管理 -->
         <div class="wizard-step" id="step2" data-step="2" style="display: none;">
             <h2>第二步：WAR包管理</h2>
-            
-            <div class="war-config-section">
-                <h3>统一支撑WAR包</h3>
-                <div class="war-item">
-                    <div class="war-list-container">
-                        <!-- 统一支撑 WAR 列表：展示当前 wars/tyzc 目录下可用的 WAR 文件 -->
-                        <p class="war-list-label">资源目录下的WAR包：</p>
-                        <ul id="war-list-unified" class="war-list">
-                            <li>加载中...</li>
-                        </ul>
+
+            <!-- WAR 管理：两列布局（统一支撑 / 干部应用），移动端自动改为一列 -->
+            <div class="war-grid">
+                <div class="war-config-section">
+                    <div class="war-card-header">
+                        <div>
+                            <h3 class="war-card-title">统一支撑 WAR 包</h3>
+                            <p class="war-card-subtitle">来源：资源目录 `wars/tyzc`。可上传替换，部署时默认使用资源目录内置 WAR。</p>
+                        </div>
                     </div>
-                    <!-- 上传统一支撑 WAR：支持在不改动配置的情况下替换 wars/tyzc 目录中的 WAR 文件 -->
-                    <div class="form-group form-group-full" style="margin-top: 10px;">
-                        <label for="war-upload-unified">上传统一支撑WAR：</label>
-                        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                            <input type="file" id="war-upload-unified" accept=".war" style="flex: 1; min-width: 0;">
-                            <button type="button" class="btn-secondary" onclick="uploadWar('unified')">上传</button>
+                    <div class="war-item">
+                        <div class="war-list-container">
+                            <ul id="war-list-unified" class="war-list" aria-label="统一支撑WAR列表">
+                                <li class="war-muted"><span>加载中...</span></li>
+                            </ul>
+                        </div>
+                        <div class="war-upload-group">
+                            <label for="war-upload-unified">上传 WAR</label>
+                            <div class="war-upload-row">
+                                <input type="file" id="war-upload-unified" accept=".war">
+                                <button type="button" class="btn-war-upload" onclick="uploadWar('unified')">上传</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="war-config-section">
-                <h3>干部应用WAR包</h3>
-                <div class="war-item">
-                    <div class="war-list-container">
-                        <!-- 干部应用 WAR 列表：展示当前 wars/gbgl 目录下可用的 WAR 文件 -->
-                        <p class="war-list-label">资源目录下的WAR包：</p>
-                        <ul id="war-list-cadre" class="war-list">
-                            <li>加载中...</li>
-                        </ul>
+                <div class="war-config-section">
+                    <div class="war-card-header">
+                        <div>
+                            <h3 class="war-card-title">干部应用 WAR 包</h3>
+                            <p class="war-card-subtitle">来源：资源目录 `wars/gbgl`。可上传替换，部署时默认使用资源目录内置 WAR。</p>
+                        </div>
                     </div>
-                    <!-- 上传干部应用 WAR：支持在不改动配置的情况下替换 wars/gbgl 目录中的 WAR 文件 -->
-                    <div class="form-group form-group-full" style="margin-top: 10px;">
-                        <label for="war-upload-cadre">上传干部应用WAR：</label>
-                        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                            <input type="file" id="war-upload-cadre" accept=".war" style="flex: 1; min-width: 0;">
-                            <button type="button" class="btn-secondary" onclick="uploadWar('cadre')">上传</button>
+                    <div class="war-item">
+                        <div class="war-list-container">
+                            <ul id="war-list-cadre" class="war-list" aria-label="干部应用WAR列表">
+                                <li class="war-muted"><span>加载中...</span></li>
+                            </ul>
+                        </div>
+                        <div class="war-upload-group">
+                            <label for="war-upload-cadre">上传 WAR</label>
+                            <div class="war-upload-row">
+                                <input type="file" id="war-upload-cadre" accept=".war">
+                                <button type="button" class="btn-war-upload" onclick="uploadWar('cadre')">上传</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1320,6 +1762,7 @@
                     <h2 id="confirm-log-title" class="confirm-card-title">
                         部署日志
                         <span id="serviceStatusBar" class="service-status-bar" aria-label="服务状态"></span>
+                        <button type="button" class="btn-heartbeat-refresh" onclick="manualRefreshHeartbeat()" title="手动检测服务心跳，成功后该服务将不再参与自动轮询">手动刷新</button>
                     </h2>
                     <div id="logContainer" class="log-container"></div>
                 </section>
@@ -1403,6 +1846,100 @@
             </div>
             <div class="deploy-help-modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeDeployHelpModal()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全局设置弹窗：用于覆盖系统内置固定默认值（如 Tomcat 端口/默认中间件/达梦连接串模板等） -->
+    <div id="globalSettingsModalBackdrop" class="deploy-help-modal-backdrop" role="dialog" aria-modal="true" aria-label="全局设置" style="display:none;">
+        <div class="deploy-help-modal" role="document" style="width: min(920px, 95vw); height: auto; max-height: 90vh;">
+            <div class="deploy-help-modal-header">
+                <div class="deploy-help-modal-title">全局设置</div>
+                <button type="button" class="btn-secondary" onclick="closeGlobalSettingsModal()" aria-label="关闭全局设置">关闭</button>
+            </div>
+            <div class="deploy-help-modal-body" style="padding: 14px 16px; overflow:auto; background:#fff;">
+                <p class="confirm-step-desc" style="margin: 0 0 12px; font-size: 12px; color: #64748b;">
+                    说明：这里配置的是“系统内置默认值”。不影响你每次部署时在向导里手工输入的参数，但会改变默认端口/默认中间件/连接串拼接等规则。
+                </p>
+
+                <div class="database-config-section" style="margin-bottom: 12px;">
+                    <h3>中间件默认值</h3>
+                    <div class="form-group">
+                        <label>默认中间件：</label>
+                        <select id="gs-default-middleware">
+                            <option value="Tomcat">Tomcat</option>
+                            <option value="TongWeb">TongWeb</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="database-config-section" style="margin-bottom: 12px;">
+                    <h3>Tomcat 默认端口</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>统一支撑端口：</label>
+                            <input type="number" id="gs-tomcat-unified-port" placeholder="8111" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label>干部应用端口：</label>
+                            <input type="number" id="gs-tomcat-cadre-port" placeholder="8222" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label>authurl 端口：</label>
+                            <input type="number" id="gs-tomcat-auth-port" placeholder="8111" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label>authurl 去协议：</label>
+                            <select id="gs-tomcat-auth-strip">
+                                <option value="true">是（写入 host:port）</option>
+                                <option value="false">否（写入含 http(s)://）</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="database-config-section" style="margin-bottom: 12px;">
+                    <h3>Tomcat JDK 版本要求</h3>
+                    <div class="form-grid">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>Tomcat 专用 JDK17 安装目录：</label>
+                            <!--
+                                说明：
+                                - 当当前运行环境的 JDK 版本低于 17 时，Tomcat 仍需运行在 JDK17 上；
+                                - 这里配置一个 JDK17 安装目录，例如 C:\Java\jdk-17 或 C:\Program Files\Java\jdk-17；
+                                - 部署前“参数配置”校验会基于该路径进行二次校验（检查 bin\java.exe 是否存在且为 17+），
+                                  校验通过后写入全局配置并在部署时同步到各实例的 setclasspath.bat 中的 JAVA_HOME。
+                            -->
+                            <input type="text" id="gs-tomcat-jdk-home" placeholder="例如：C:\Java\jdk-17 或 /opt/jdk-17">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="database-config-section" style="margin-bottom: 12px;">
+                    <h3>达梦连接串模板</h3>
+                    <div class="form-grid">
+                        <div class="form-group form-group-full">
+                            <label>连接串前缀：</label>
+                            <input type="text" id="gs-dm-prefix" placeholder="jdbc:dm://">
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label>连接串后缀：</label>
+                            <input type="text" id="gs-dm-suffix" placeholder="例如 :5236/DAMENG 或 ?param=1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="database-config-section" style="margin-bottom: 0;">
+                    <h3>YML 占位符替换</h3>
+                    <div class="form-group">
+                        <label>${type} 替换为：</label>
+                        <input type="text" id="gs-yml-ds-type" placeholder="com.alibaba.druid.pool.DruidDataSource">
+                    </div>
+                </div>
+            </div>
+            <div class="deploy-help-modal-footer">
+                <button type="button" class="btn-secondary" onclick="reloadGlobalSettings()">重载</button>
+                <button type="button" class="btn-primary" onclick="saveGlobalSettings()">保存</button>
             </div>
         </div>
     </div>

@@ -11,6 +11,11 @@ const deployConfig = {
     tongWebDeployDir: '',
     /** 服务器 URL（IP+端口），用于替换 YML 中的 ${authurl}，如 http://10.200.58.167:8080 */
     serverUrl: '',
+    /**
+     * 全局设置（后端可配置化的“系统内置默认值”）
+     * 说明：用于覆盖内置固定值（Tomcat 端口、默认中间件、达梦连接串模板、YML替换默认值等）。
+     */
+    globalSettings: null,
     databases: {
         unified: {},
         cadre: {}
@@ -29,21 +34,173 @@ const deployConfig = {
         cadre: []
     },
     // TongWeb 部署目录合法性校验标记：仅当后端校验通过时置为 true，用于控制步骤跳转与部署脚本生成
-    tongWebInstallValidated: false
+    tongWebInstallValidated: false,
+    // Tomcat 专用 JDK 安装目录（仅当当前环境 JDK < 17 且中间件为 Tomcat 且在 Windows 上部署时由用户填写）
+    tomcatJdkHome: ''
 };
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     initWebSocket();
     initEventListeners();
-    loadBuiltinWars();
-    loadConfigList();
-    showStep(1);
+    // 启动时优先加载“全局设置”，确保端口/默认值等规则可被覆盖（加载失败则继续使用内置默认）
+    loadGlobalSettings()
+        .finally(() => {
+            loadBuiltinWars();
+            loadConfigList();
+            showStep(1);
+        });
+    // 字段帮助提示：使用 body 下的 fixed 浮层，避免被滚动容器/overflow 裁剪
+    initFieldHelpTooltips();
     // 支持从首页通过 URL 哈希（例如 #data-init）直达指定步骤，提升入口体验
     handleDeepLinkFromLocation();
     // 安装目录选择：绑定目录选择器（浏览器限制无法获取绝对路径，仅辅助填写）
     initInstallDirPicker();
 });
+
+/**
+ * 字段帮助提示（问号图标 hover/focus 显示浮层）
+ * 说明：
+ * - 浮层挂在 body，fixed 定位，避免被任何 overflow: hidden/auto 的容器遮挡/裁剪
+ * - 仅展示 data-tip 内容，宽度固定（CSS 控制）
+ */
+function initFieldHelpTooltips() {
+    const selector = '.field-help[data-tip]';
+    const tooltipClass = 'global-tooltip';
+    let tipEl = null;
+    let activeTarget = null;
+
+    const ensureTooltipEl = () => {
+        if (tipEl) return tipEl;
+        tipEl = document.createElement('div');
+        tipEl.className = tooltipClass;
+        tipEl.style.display = 'none';
+        document.body.appendChild(tipEl);
+        return tipEl;
+    };
+
+    const hide = () => {
+        if (tipEl) tipEl.style.display = 'none';
+        activeTarget = null;
+    };
+
+    const showFor = (target) => {
+        if (!target) return;
+        const text = target.getAttribute('data-tip') || '';
+        if (!text.trim()) return;
+
+        const el = ensureTooltipEl();
+        el.textContent = text;
+        el.style.display = 'block';
+
+        // 计算位置：默认显示在图标下方，水平尽量对齐图标左侧；超出视口时自动贴边
+        const rect = target.getBoundingClientRect();
+        const padding = 10;
+        const top = rect.bottom + 10;
+
+        // 浮层宽度固定为 260（与 CSS 保持一致）；这里用 offsetWidth 取实际值更稳
+        const width = el.offsetWidth || 260;
+        let left = rect.left - 8; // 稍微向左靠，让箭头更自然
+        left = Math.max(padding, Math.min(left, window.innerWidth - width - padding));
+
+        // 竖向贴边：若底部放不下则放到图标上方
+        const height = el.offsetHeight || 0;
+        let finalTop = top;
+        if (finalTop + height + padding > window.innerHeight) {
+            finalTop = Math.max(padding, rect.top - height - 10);
+            // 箭头朝下：通过切换 class 来实现会更复杂，这里保持上箭头样式即可（仍可接受）
+        }
+
+        el.style.left = left + 'px';
+        el.style.top = finalTop + 'px';
+        activeTarget = target;
+    };
+
+    // 事件委托：避免未来动态渲染时需要重复绑定
+    document.addEventListener('mouseover', (e) => {
+        const t = e.target && e.target.closest ? e.target.closest(selector) : null;
+        if (t) {
+            showFor(t);
+        }
+    });
+    document.addEventListener('mouseout', (e) => {
+        const from = e.target && e.target.closest ? e.target.closest(selector) : null;
+        const to = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest(selector) : null;
+        // 从一个帮助图标移动到另一个帮助图标时不隐藏，直接切换
+        if (from && to) {
+            showFor(to);
+            return;
+        }
+        if (from && !to) {
+            hide();
+        }
+    });
+    document.addEventListener('focusin', (e) => {
+        const t = e.target && e.target.closest ? e.target.closest(selector) : null;
+        if (t) showFor(t);
+    });
+    document.addEventListener('focusout', (e) => {
+        const t = e.target && e.target.closest ? e.target.closest(selector) : null;
+        if (t) hide();
+    });
+
+    // 滚动/缩放时重定位（若正在展示）
+    window.addEventListener('scroll', () => {
+        if (activeTarget) showFor(activeTarget);
+    }, true);
+    window.addEventListener('resize', () => {
+        if (activeTarget) showFor(activeTarget);
+    });
+}
+
+/**
+ * 获取全局设置（后端持久化 JSON）；失败时不阻断部署流程
+ */
+function loadGlobalSettings() {
+    return fetch('/api/settings/global')
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.success && data.settings) {
+                deployConfig.globalSettings = data.settings;
+            } else {
+                // 未配置/获取失败时保持 null，后续会走内置默认
+                deployConfig.globalSettings = null;
+            }
+        })
+        .catch(() => {
+            deployConfig.globalSettings = null;
+        });
+}
+
+/**
+ * 获取某个全局设置值（带 fallback）
+ */
+function getGlobalSetting(path, fallbackValue) {
+    // 说明：path 使用类似 'tomcat.unifiedPort' 的点分隔写法，便于简单读值
+    try {
+        const obj = deployConfig.globalSettings;
+        if (!obj) return fallbackValue;
+        const parts = String(path || '').split('.').filter(Boolean);
+        let cur = obj;
+        for (const p of parts) {
+            if (cur == null) return fallbackValue;
+            cur = cur[p];
+        }
+        return (cur === undefined || cur === null) ? fallbackValue : cur;
+    } catch (e) {
+        return fallbackValue;
+    }
+}
+
+/**
+ * 构建达梦连接串（prefix + ip + suffix），由全局设置控制
+ */
+function buildDmConnectionString(ip) {
+    const prefix = String(getGlobalSetting('database.dm.connectionPrefix', 'jdbc:dm://') || 'jdbc:dm://');
+    const suffix = String(getGlobalSetting('database.dm.connectionSuffix', '') || '');
+    const host = (ip || '').trim();
+    return host ? (prefix + host + suffix) : '';
+}
 
 // 从 URL 中解析哈希值，并将用户跳转到对应的部署向导步骤（当前支持数据初始化等入口）
 function handleDeepLinkFromLocation() {
@@ -193,11 +350,54 @@ function initEventListeners() {
     document.querySelectorAll('.step-item').forEach(item => {
         item.addEventListener('click', function() {
             const step = parseInt(this.dataset.step);
+            // 注：参数配置未通过校验时，禁止跳转到任何后续步骤，仅允许返回或停留
+            if (step > 1 && !isStepCompleted(1)) {
+                if (typeof Message !== 'undefined' && Message.warning) {
+                    Message.warning('请先完成参数配置，再继续后续步骤');
+                } else {
+                    alert('请先完成参数配置，再继续后续步骤');
+                }
+                return;
+            }
+            // 注：允许自由返回已走过的步骤；向前跳转必须保证前一阶段已完成
+            if (step <= currentStep || isStepCompleted(step - 1)) {
+                showStep(step);
+            }
+        });
+        // 左侧步骤导航增强：支持键盘 Enter/Space 触发（提升可达性与交互一致性）
+        item.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            const step = parseInt(this.dataset.step);
+            // 注：键盘操作与点击保持一致，同样受参数配置校验约束
+            if (step > 1 && !isStepCompleted(1)) {
+                if (typeof Message !== 'undefined' && Message.warning) {
+                    Message.warning('请先完成参数配置，再继续后续步骤');
+                } else {
+                    alert('请先完成参数配置，再继续后续步骤');
+                }
+                return;
+            }
             if (step <= currentStep || isStepCompleted(step - 1)) {
                 showStep(step);
             }
         });
     });
+}
+
+// 左侧导航增强：同步顶部进度条与步骤计数（简化为整体进度，不再显示文字状态）
+function updateSidebarStepUI(step) {
+    const totalSteps = 5;
+
+    // 进度数值与进度条（注：按当前步骤占比展示）
+    const metaEl = document.getElementById('sidebarStepMeta');
+    if (metaEl) metaEl.textContent = `${step} / ${totalSteps}`;
+
+    const fillEl = document.getElementById('sidebarProgressFill');
+    if (fillEl) {
+        const pct = Math.max(0, Math.min(100, Math.round((step / totalSteps) * 100)));
+        fillEl.style.width = `${pct}%`;
+    }
 }
 
 // 加载内置WAR包列表
@@ -207,14 +407,60 @@ function loadBuiltinWars() {
         .then(response => response.json())
         .then(data => {
             if (data.success && data.wars) {
+                const buildWarMetaText = (item) => {
+                    if (!item) return '';
+                    const sizeBytes = (item.sizeBytes != null ? Number(item.sizeBytes) : null);
+                    const lastModified = (item.lastModified != null ? Number(item.lastModified) : null);
+                    const sizeText = (sizeBytes != null && !Number.isNaN(sizeBytes)) ? formatBytes(sizeBytes) : '';
+                    const timeText = (lastModified != null && !Number.isNaN(lastModified)) ? formatDateTime(lastModified) : '';
+                    const parts = [];
+                    if (sizeText) parts.push(sizeText);
+                    if (timeText) parts.push(timeText);
+                    return parts.length ? parts.join(' · ') : '';
+                };
+
                 // 展示统一支撑WAR包列表
                 const unifiedList = document.getElementById('war-list-unified');
                 if (unifiedList) {
                     unifiedList.innerHTML = '';
-                    if (data.wars.unifiedList && data.wars.unifiedList.length > 0) {
-                        // 保存所有WAR包名称
+                    // 新格式优先：unifiedItems（带大小/时间）
+                    if (data.wars.unifiedItems && Array.isArray(data.wars.unifiedItems) && data.wars.unifiedItems.length > 0) {
+                        const names = data.wars.unifiedItems.map(i => i && i.name).filter(Boolean);
+                        deployConfig.wars.unified.builtinNames = names;
+                        data.wars.unifiedItems.forEach(item => {
+                            const warName = item && item.name ? item.name : '';
+                            if (!warName) return;
+                            const li = document.createElement('li');
+                            const left = document.createElement('div');
+                            left.className = 'war-row-left';
+
+                            const nameSpan = document.createElement('span');
+                            nameSpan.textContent = warName;
+                            left.appendChild(nameSpan);
+
+                            const meta = buildWarMetaText(item);
+                            if (meta) {
+                                const metaDiv = document.createElement('div');
+                                metaDiv.className = 'war-row-meta';
+                                metaDiv.textContent = meta;
+                                left.appendChild(metaDiv);
+                            }
+                            li.appendChild(left);
+
+                            const delBtn = document.createElement('button');
+                            delBtn.type = 'button';
+                            delBtn.className = 'btn-secondary';
+                            delBtn.textContent = '删除';
+                            delBtn.onclick = function () {
+                                deleteWar('unified', warName);
+                            };
+                            li.appendChild(delBtn);
+
+                            unifiedList.appendChild(li);
+                        });
+                    } else if (data.wars.unifiedList && data.wars.unifiedList.length > 0) {
+                        // 旧格式：仅文件名
                         deployConfig.wars.unified.builtinNames = data.wars.unifiedList;
-                        // 展示列表：每个条目附带删除按钮，便于直接管理 wars/tyzc 目录下的文件
                         data.wars.unifiedList.forEach(warName => {
                             const li = document.createElement('li');
                             const nameSpan = document.createElement('span');
@@ -224,7 +470,6 @@ function loadBuiltinWars() {
                             const delBtn = document.createElement('button');
                             delBtn.type = 'button';
                             delBtn.className = 'btn-secondary';
-                            delBtn.style.marginLeft = '10px';
                             delBtn.textContent = '删除';
                             delBtn.onclick = function () {
                                 deleteWar('unified', warName);
@@ -253,8 +498,10 @@ function loadBuiltinWars() {
                         unifiedList.appendChild(li);
                     } else {
                         const li = document.createElement('li');
-                        li.textContent = '未找到WAR包';
-                        li.style.color = '#999';
+                        li.className = 'war-muted';
+                        const span = document.createElement('span');
+                        span.textContent = '未找到WAR包';
+                        li.appendChild(span);
                         unifiedList.appendChild(li);
                     }
                 }
@@ -263,10 +510,44 @@ function loadBuiltinWars() {
                 const cadreList = document.getElementById('war-list-cadre');
                 if (cadreList) {
                     cadreList.innerHTML = '';
-                    if (data.wars.cadreList && data.wars.cadreList.length > 0) {
-                        // 保存所有WAR包名称
+                    // 新格式优先：cadreItems（带大小/时间）
+                    if (data.wars.cadreItems && Array.isArray(data.wars.cadreItems) && data.wars.cadreItems.length > 0) {
+                        const names = data.wars.cadreItems.map(i => i && i.name).filter(Boolean);
+                        deployConfig.wars.cadre.builtinNames = names;
+                        data.wars.cadreItems.forEach(item => {
+                            const warName = item && item.name ? item.name : '';
+                            if (!warName) return;
+                            const li = document.createElement('li');
+                            const left = document.createElement('div');
+                            left.className = 'war-row-left';
+
+                            const nameSpan = document.createElement('span');
+                            nameSpan.textContent = warName;
+                            left.appendChild(nameSpan);
+
+                            const meta = buildWarMetaText(item);
+                            if (meta) {
+                                const metaDiv = document.createElement('div');
+                                metaDiv.className = 'war-row-meta';
+                                metaDiv.textContent = meta;
+                                left.appendChild(metaDiv);
+                            }
+                            li.appendChild(left);
+
+                            const delBtn = document.createElement('button');
+                            delBtn.type = 'button';
+                            delBtn.className = 'btn-secondary';
+                            delBtn.textContent = '删除';
+                            delBtn.onclick = function () {
+                                deleteWar('cadre', warName);
+                            };
+                            li.appendChild(delBtn);
+
+                            cadreList.appendChild(li);
+                        });
+                    } else if (data.wars.cadreList && data.wars.cadreList.length > 0) {
+                        // 旧格式：仅文件名
                         deployConfig.wars.cadre.builtinNames = data.wars.cadreList;
-                        // 展示列表：每个条目附带删除按钮，便于直接管理 wars/gbgl 目录下的文件
                         data.wars.cadreList.forEach(warName => {
                             const li = document.createElement('li');
                             const nameSpan = document.createElement('span');
@@ -276,7 +557,6 @@ function loadBuiltinWars() {
                             const delBtn = document.createElement('button');
                             delBtn.type = 'button';
                             delBtn.className = 'btn-secondary';
-                            delBtn.style.marginLeft = '10px';
                             delBtn.textContent = '删除';
                             delBtn.onclick = function () {
                                 deleteWar('cadre', warName);
@@ -305,8 +585,10 @@ function loadBuiltinWars() {
                         cadreList.appendChild(li);
                     } else {
                         const li = document.createElement('li');
-                        li.textContent = '未找到WAR包';
-                        li.style.color = '#999';
+                        li.className = 'war-muted';
+                        const span = document.createElement('span');
+                        span.textContent = '未找到WAR包';
+                        li.appendChild(span);
                         cadreList.appendChild(li);
                     }
                 }
@@ -315,10 +597,10 @@ function loadBuiltinWars() {
                 const unifiedList = document.getElementById('war-list-unified');
                 const cadreList = document.getElementById('war-list-cadre');
                 if (unifiedList) {
-                    unifiedList.innerHTML = '<li style="color: #e74c3c;">加载失败</li>';
+                    unifiedList.innerHTML = '<li class="war-muted"><span style="color:#e74c3c;">加载失败</span></li>';
                 }
                 if (cadreList) {
-                    cadreList.innerHTML = '<li style="color: #e74c3c;">加载失败</li>';
+                    cadreList.innerHTML = '<li class="war-muted"><span style="color:#e74c3c;">加载失败</span></li>';
                 }
             }
         })
@@ -327,12 +609,50 @@ function loadBuiltinWars() {
             const unifiedList = document.getElementById('war-list-unified');
             const cadreList = document.getElementById('war-list-cadre');
             if (unifiedList) {
-                unifiedList.innerHTML = '<li style="color: #e74c3c;">加载失败</li>';
+                unifiedList.innerHTML = '<li class="war-muted"><span style="color:#e74c3c;">加载失败</span></li>';
             }
             if (cadreList) {
-                cadreList.innerHTML = '<li style="color: #e74c3c;">加载失败</li>';
+                cadreList.innerHTML = '<li class="war-muted"><span style="color:#e74c3c;">加载失败</span></li>';
             }
         });
+}
+
+/**
+ * 格式化字节大小（B/KB/MB/GB）
+ */
+function formatBytes(bytes) {
+    const b = Number(bytes);
+    if (!Number.isFinite(b) || b < 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let val = b;
+    let i = 0;
+    while (val >= 1024 && i < units.length - 1) {
+        val = val / 1024;
+        i += 1;
+    }
+    const digits = i === 0 ? 0 : (val >= 10 ? 1 : 2);
+    return val.toFixed(digits) + ' ' + units[i];
+}
+
+/**
+ * 格式化时间戳（毫秒）为可读时间
+ */
+function formatDateTime(epochMs) {
+    const t = Number(epochMs);
+    if (!Number.isFinite(t) || t <= 0) return '';
+    try {
+        const d = new Date(t);
+        const fmt = new Intl.DateTimeFormat('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        return fmt.format(d);
+    } catch (e) {
+        return '';
+    }
 }
 
 // 上传 WAR 包到指定应用的 wars 目录
@@ -446,6 +766,9 @@ function showStep(step) {
             item.classList.add('completed');
         }
     });
+
+    // 左侧导航增强：同步徽标文案与进度条
+    updateSidebarStepUI(step);
     
     currentStep = step;
     
@@ -532,15 +855,18 @@ function prevStep() {
 function validateCurrentStep() {
     switch(currentStep) {
         case 1:
+            // 1) 部署目录必填
             const installDir = document.getElementById('installDir').value;
             if (!installDir) {
                 Message.alert('请输入部署目录');
                 return false;
             }
-            // TongWeb 特殊校验：通过后端接口检查部署目录是否符合安装层级，且存在 startd.sh / stopserver.sh
+
+            // 2) TongWeb 特殊校验：通过后端接口检查部署目录是否符合安装层级，且存在 startd.sh / stopserver.sh
             const middlewareSelect = document.getElementById('middlewareType');
             const middlewareType = middlewareSelect ? (middlewareSelect.value || '').trim() : (deployConfig.middlewareType || '');
-            if (middlewareType && (middlewareType.toLowerCase() === 'tongweb' || middlewareType.toLowerCase() === 'tong_web')) {
+            const lowerMt = middlewareType ? middlewareType.toLowerCase() : '';
+            if (lowerMt === 'tongweb' || lowerMt === 'tong_web') {
                 try {
                     const xhr = new XMLHttpRequest();
                     xhr.open('GET', '/api/deploy/tongweb/installDir/check?path=' + encodeURIComponent(installDir), false);
@@ -580,7 +906,121 @@ function validateCurrentStep() {
                     return false;
                 }
             }
-            // 数据库配置：IP 统一配置在 db-ip-common，下方分别配置两个库的用户名/密码
+
+            // 3) Tomcat JDK 校验：所有操作系统上只要选择 Tomcat 都需要校验
+            // 校验顺序：
+            //   1. 优先检查当前环境变量中的 java 是否已是 JDK17+（/api/deploy/java/check 无 jdkHome 参数）
+            //   2. 若当前环境 JDK 不满足要求，再检查全局配置中的 tomcat.tomcatJdkHome 是否指向 JDK17+
+            //   3. 若全局也未配置或配置错误，再弹窗要求用户输入 JDK17 安装目录，并校验通过后写回全局配置
+            if (!lowerMt || lowerMt === 'tomcat') {
+                var envIsJdk17 = false;
+                try {
+                    // 3.1 检查当前环境 java 版本
+                    var envXhr = new XMLHttpRequest();
+                    envXhr.open('GET', '/api/deploy/java/check', false);
+                    envXhr.send(null);
+                    if (envXhr.status === 200) {
+                        var envData = JSON.parse(envXhr.responseText);
+                        if (envData && envData.success && envData.isJdk17) {
+                            envIsJdk17 = true;
+                        }
+                        // 即便 success=false，我们仍然可以从 envData.javaVersion 中获知版本信息用于提示
+                    }
+                } catch (eEnv) {
+                    // 环境检查失败时，不立刻阻断，而是继续走“专用 JDK 目录”逻辑
+                    envIsJdk17 = false;
+                }
+
+                // 当前环境 JDK 已经是 17+，则无需额外配置专用 JDK 路径
+                if (!envIsJdk17) {
+                    // 3.2 尝试使用全局配置中的 Tomcat JDK 路径
+                    var globalJdkHome = getGlobalSetting('tomcat.tomcatJdkHome', '') || '';
+                    deployConfig.tomcatJdkHome = globalJdkHome;
+
+                    // 若全局未配置，先让用户输入一个候选路径
+                    if (!deployConfig.tomcatJdkHome) {
+                        var firstHint = 'Tomcat 部署要求使用 JDK 17 或更高版本。\n\n' +
+                            '检测到当前环境 JDK 版本不满足要求，且全局设置中尚未配置 Tomcat 专用 JDK17 安装目录。\n\n' +
+                            '请输入 JDK 17 安装目录，例如：C:\\\\Java\\\\jdk-17 或 C:\\\\Program Files\\\\Java\\\\jdk-17';
+                        var inputPath = window.prompt(firstHint, '');
+                        if (!inputPath || !String(inputPath).trim()) {
+                            if (typeof Message !== 'undefined') {
+                                Message.alert('必须在全局配置中提供 Tomcat 专用 JDK 17 安装目录才能继续。');
+                            } else {
+                                alert('必须在全局配置中提供 Tomcat 专用 JDK 17 安装目录才能继续。');
+                            }
+                            return false;
+                        }
+                        deployConfig.tomcatJdkHome = String(inputPath).trim();
+                    }
+
+                    // 3.3 使用同步 XHR 调用后端 JDK 校验接口，确保路径真实可用且版本满足要求
+                    try {
+                        var checkUrl = '/api/deploy/java/check?jdkHome=' + encodeURIComponent(deployConfig.tomcatJdkHome);
+                        var jdkXhr = new XMLHttpRequest();
+                        jdkXhr.open('GET', checkUrl, false);
+                        jdkXhr.send(null);
+                        if (jdkXhr.status === 200) {
+                            var jdkData = JSON.parse(jdkXhr.responseText);
+                            if (!jdkData || !jdkData.success || !jdkData.isJdk17) {
+                                var v = (jdkData && jdkData.javaVersion) ? jdkData.javaVersion : '未知';
+                                var msgText = (jdkData && jdkData.message) ? jdkData.message :
+                                    ('当前指定路径下的 JDK 版本为 ' + v + '，不满足 Tomcat 部署对 JDK17 的要求，请在全局配置中重新填写 JDK17 安装目录。');
+                                if (typeof Message !== 'undefined') {
+                                    Message.alert(msgText);
+                                } else {
+                                    alert(msgText);
+                                }
+                                return false;
+                            }
+
+                            // 校验通过：将合法路径回写到全局设置并持久化，避免后续每次输入
+                            var settingsToSave = deployConfig.globalSettings || {};
+                            if (!settingsToSave.tomcat) {
+                                settingsToSave.tomcat = {};
+                            }
+                            settingsToSave.tomcat.tomcatJdkHome = deployConfig.tomcatJdkHome;
+
+                            // 同步保存全局设置（避免异步带来的状态不同步）
+                            var saveXhr = new XMLHttpRequest();
+                            saveXhr.open('POST', '/api/settings/global', false);
+                            saveXhr.setRequestHeader('Content-Type', 'application/json');
+                            saveXhr.send(JSON.stringify(settingsToSave));
+                            if (saveXhr.status === 200) {
+                                try {
+                                    var saveResp = JSON.parse(saveXhr.responseText);
+                                    if (saveResp && saveResp.success && saveResp.settings) {
+                                        deployConfig.globalSettings = saveResp.settings;
+                                    }
+                                } catch (e2) {
+                                    // 忽略解析错误，不影响继续流程
+                                }
+                            }
+                        } else {
+                            var errMsg = 'JDK 环境检查请求失败，HTTP 状态码: ' + jdkXhr.status;
+                            if (typeof Message !== 'undefined') {
+                                Message.alert(errMsg);
+                            } else {
+                                alert(errMsg);
+                            }
+                            return false;
+                        }
+                    } catch (e3) {
+                        var exMsg = 'JDK 环境检查出现异常: ' + e3.message;
+                        if (typeof Message !== 'undefined') {
+                            Message.alert(exMsg);
+                        } else {
+                            alert(exMsg);
+                        }
+                        return false;
+                    }
+                } else {
+                    // 环境本身已满足 JDK17 要求，本次部署不必依赖专用 JDK 路径
+                    deployConfig.tomcatJdkHome = '';
+                }
+            }
+
+            // 4) 数据库配置：IP 统一配置在 db-ip-common，下方分别配置两个库的用户名/密码
             const commonIp = document.getElementById('db-ip-common').value;
             const unifiedUser = document.getElementById('db-user-unified').value;
             const unifiedPwd = document.getElementById('db-pwd-unified').value;
@@ -616,20 +1056,20 @@ function saveCurrentStepData() {
             const unifiedPwd = (document.getElementById('db-pwd-unified').value || '').trim();
             const cadreUser = (document.getElementById('db-user-cadre').value || '').trim();
             const cadrePwd = (document.getElementById('db-pwd-cadre').value || '').trim();
-            // 连接串仅使用 IP，不再默认追加 :5236/DAMENG，端口与库名由实际环境或数据源配置决定
+            // 连接串拼接：由“全局设置”控制 prefix/suffix（默认仍是 jdbc:dm://{ip}，保持向后兼容）
             deployConfig.databases.unified = {
-                type: '达梦',
+                type: String(getGlobalSetting('database.defaultType', '达梦') || '达梦'),
                 ip: commonIp,
                 username: unifiedUser,
                 password: unifiedPwd,
-                connectionString: commonIp ? `jdbc:dm://${commonIp}` : ''
+                connectionString: buildDmConnectionString(commonIp)
             };
             deployConfig.databases.cadre = {
-                type: '达梦',
+                type: String(getGlobalSetting('database.defaultType', '达梦') || '达梦'),
                 ip: commonIp,
                 username: cadreUser,
                 password: cadrePwd,
-                connectionString: commonIp ? `jdbc:dm://${commonIp}` : ''
+                connectionString: buildDmConnectionString(commonIp)
             };
             break;
         case 2:
@@ -645,11 +1085,15 @@ function saveCurrentStepData() {
 // 测试数据库连接
 function testDatabase(app) {
     // 数据库测试：统一使用外层配置的数据库IP，仅输入各库用户名 / 密码；内部派生连接串与类型（默认达梦）
-    const type = '达梦';
-    const ip = (document.getElementById('db-ip-common')?.value || '').trim();
-    const username = document.getElementById(`db-user-${app}`)?.value || '';
-    const password = document.getElementById(`db-pwd-${app}`)?.value || '';
-    const connectionString = ip ? `jdbc:dm://${ip}` : '';
+    const type = String(getGlobalSetting('database.defaultType', '达梦') || '达梦');
+    // 说明：为兼容旧版浏览器（如 Firefox 68），避免使用可选链 ?.，改为显式空值判断
+    const ipInput = document.getElementById('db-ip-common');
+    const ip = (ipInput && typeof ipInput.value === 'string' ? ipInput.value : '').trim();
+    const usernameInput = document.getElementById(`db-user-${app}`);
+    const username = (usernameInput && typeof usernameInput.value === 'string') ? usernameInput.value : '';
+    const passwordInput = document.getElementById(`db-pwd-${app}`);
+    const password = (passwordInput && typeof passwordInput.value === 'string') ? passwordInput.value : '';
+    const connectionString = buildDmConnectionString(ip);
 
     if (!ip || !username || !password) {
         Message.alert('请填写完整的数据库信息（IP/用户名/密码）');
@@ -689,11 +1133,14 @@ function testDatabase(app) {
                 };
                 // 如果当前在YML配置页面（步骤3），自动更新
                 if (currentStep === 3) {
-                    const ymlApp = document.getElementById('ymlAppSelect')?.value;
-                    if (ymlApp === app && document.getElementById('ymlContent')?.value) {
-                        let content = document.getElementById('ymlContent').value;
+                    // 说明：为兼容旧版浏览器，避免使用 ?.，统一改为显式 DOM 判空
+                    const ymlAppSelect = document.getElementById('ymlAppSelect');
+                    const ymlApp = ymlAppSelect ? ymlAppSelect.value : null;
+                    const ymlContentEl = document.getElementById('ymlContent');
+                    if (ymlApp === app && ymlContentEl && ymlContentEl.value) {
+                        let content = ymlContentEl.value;
                         content = replaceDatabasePlaceholders(content, app);
-                        document.getElementById('ymlContent').value = content;
+                        ymlContentEl.value = content;
                         deployConfig.ymlConfigs[app] = content;
                         Message.success('已同步数据库配置到YML内容');
                     }
@@ -750,9 +1197,9 @@ function getDatabaseConfig(app) {
     });
     
     if (ipEl && userEl && pwdEl) {
-        const type = '达梦';
+        const type = String(getGlobalSetting('database.defaultType', '达梦') || '达梦');
         const ip = (ipEl.value || '').trim();
-        const connectionString = ip ? `jdbc:dm://${ip}` : '';
+        const connectionString = buildDmConnectionString(ip);
         const username = userEl.value;
         const password = pwdEl.value;
         
@@ -819,16 +1266,20 @@ function replaceDatabasePlaceholders(ymlContent, app) {
     // 对于 TongWeb：直接使用用户填写的 serverUrl 文本，不做协议补全。
     let authUrlValue;
     if (middleware === 'tomcat') {
-        const baseWithProto = buildTomcatBaseUrl(rawServerUrl, 8111);
-        // 去掉协议前缀，仅保留 host:port 形式，避免在 YML 中强制添加 http://
-        authUrlValue = baseWithProto.replace(/^https?:\/\//i, '');
+        // Tomcat authurl 端口可由“全局设置”覆盖（默认 8111）
+        const authPort = Number(getGlobalSetting('tomcat.authPort', 8111));
+        const baseWithProto = buildTomcatBaseUrl(rawServerUrl, authPort);
+        const strip = String(getGlobalSetting('tomcat.authUrlStripProtocol', true)) === 'true' || getGlobalSetting('tomcat.authUrlStripProtocol', true) === true;
+        // authurl 是否去协议：由全局设置控制（默认保持老逻辑：去掉协议）
+        authUrlValue = strip ? baseWithProto.replace(/^https?:\/\//i, '') : baseWithProto;
     } else {
         authUrlValue = rawServerUrl.trim();
     }
 
     // 替换值（不包含单引号）：数据库占位符 + authurl
     const replacements = {
-        '${type}': 'com.alibaba.druid.pool.DruidDataSource', // 数据源类型固定为Druid
+        // ${type} 替换值：由全局设置控制（默认 DruidDataSource）
+        '${type}': String(getGlobalSetting('yml.datasourceTypeReplacement', 'com.alibaba.druid.pool.DruidDataSource') || 'com.alibaba.druid.pool.DruidDataSource'),
         '${url}': dbConfig.connectionString || '',
         '${username}': dbConfig.username || '',
         '${password}': dbConfig.password || '',
@@ -1288,11 +1739,13 @@ function startDeploy() {
         }
     }
     
-    // 构建部署配置
-    const config = {
+    // 构建基础部署配置（后续在确保 JDK 环境满足要求后再发送给后端）
+    const isWindows = navigator.platform && navigator.platform.toLowerCase().indexOf('win') !== -1;
+    const middleware = (deployConfig.middlewareType || 'Tomcat').toLowerCase();
+    const baseConfig = {
         installDir: deployConfig.installDir,
         // 操作系统类型：前端根据当前浏览器环境粗略判断，后端在具体执行时仍会结合 System.getProperty("os.name") 兜底
-        osType: navigator.platform && navigator.platform.toLowerCase().indexOf('win') !== -1 ? 'Windows' : 'Linux',
+        osType: isWindows ? 'Windows' : 'Linux',
         middlewareType: deployConfig.middlewareType,
         tongWebDeployDir: deployConfig.installDir,
         serverUrl: deployConfig.serverUrl || '',
@@ -1302,45 +1755,62 @@ function startDeploy() {
         ],
         warFiles: [],
         useBuiltInWars: true,
-        ymlConfigs: deployConfig.ymlConfigs
+        ymlConfigs: deployConfig.ymlConfigs,
+        // 默认使用当前进程 JDK；若前端检测出 JDK < 17 且为 Windows + Tomcat，则会在下面注入 tomcatJdkHome
+        tomcatJdkHome: deployConfig.tomcatJdkHome || ''
     };
     
     // 处理WAR包配置（部署目录下所有的WAR包）
     if (deployConfig.wars.unified.builtinNames && deployConfig.wars.unified.builtinNames.length > 0) {
         deployConfig.wars.unified.builtinNames.forEach(warName => {
-            config.warFiles.push('tyzc/' + warName);
+            baseConfig.warFiles.push('tyzc/' + warName);
         });
     }
     if (deployConfig.wars.cadre.builtinNames && deployConfig.wars.cadre.builtinNames.length > 0) {
         deployConfig.wars.cadre.builtinNames.forEach(warName => {
-            config.warFiles.push('gbgl/' + warName);
+            baseConfig.warFiles.push('gbgl/' + warName);
         });
     }
-    
+
+    // 这里不再重复做 JDK 校验：第 1 步“参数配置”中的 validateCurrentStep 已经完成了
+    // 环境 JDK / 全局配置 JDK17 路径的综合校验，并在需要时持久化 tomcatJdkHome。
+    // 开始部署阶段仅使用校验后的配置直接发起后端部署请求。
+    const finalConfig = Object.assign({}, baseConfig, {
+        tomcatJdkHome: deployConfig.tomcatJdkHome || ''
+    });
+
     addLog('正在启动部署...', 'info');
-    
+
     fetch('/api/deploy/start', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(config)
+        body: JSON.stringify(finalConfig)
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            addLog('部署任务已启动', 'success');
-            // 部署任务启动后，等待后端日志中的“部署完成”信号再启动心跳轮询
-            resetHeartbeatState();
-        } else {
-            addLog('启动部署失败: ' + data.message, 'error');
-            updateServiceStatusBar({ unified: 'error', cadre: 'error', message: '部署启动失败，未进行心跳检测' });
-        }
-    })
-    .catch(error => {
-        addLog('请求失败: ' + error.message, 'error');
-        updateServiceStatusBar({ unified: 'error', cadre: 'error', message: '部署请求失败，未进行心跳检测' });
-    });
+        .then(function (response) {
+            if (!response) return null;
+            return response.json();
+        })
+        .then(function (data) {
+            if (!data) return;
+            if (data.success) {
+                addLog('部署任务已启动', 'success');
+                // 部署任务启动后，等待后端日志中的“部署完成”信号再启动心跳轮询
+                resetHeartbeatState();
+            } else {
+                addLog('启动部署失败: ' + data.message, 'error');
+                updateServiceStatusBar({ unified: 'error', cadre: 'error', message: '部署启动失败，未进行心跳检测' });
+            }
+        })
+        .catch(function (error) {
+            if (error && error.message) {
+                addLog('部署已取消或失败: ' + error.message, 'error');
+            } else {
+                addLog('请求失败: ' + error, 'error');
+            }
+            updateServiceStatusBar({ unified: 'error', cadre: 'error', message: '部署请求失败或已取消，未进行心跳检测' });
+        });
 }
 
 // 生成部署脚本并通过弹窗展示
@@ -2033,8 +2503,16 @@ Message.error('请求失败: ' + error.message);
 // 自动检测统一支撑 / 干部应用心跳（轮询直到成功或达到上限）
 let heartbeatTimer = null;
 let heartbeatAttempts = 0;
-const HEARTBEAT_INTERVAL_MS = 5000;
-const MAX_HEARTBEAT_ATTEMPTS = 60; // 最多轮询约 5 分钟
+/** 心跳轮询间隔：2 分钟 */
+const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+const MAX_HEARTBEAT_ATTEMPTS = 60; // 最多轮询约 2 小时
+
+/** 已成功的服务不再请求，只轮询未成功的 */
+let heartbeatUnifiedOk = false;
+let heartbeatCadreOk = false;
+/** 用于 UI 部分更新：只更新本次检测的那一项，另一项保留上次状态 */
+let heartbeatUnifiedStatus = 'unknown';
+let heartbeatCadreStatus = 'unknown';
 
 function resetHeartbeatState() {
     if (heartbeatTimer) {
@@ -2042,6 +2520,10 @@ function resetHeartbeatState() {
         heartbeatTimer = null;
     }
     heartbeatAttempts = 0;
+    heartbeatUnifiedOk = false;
+    heartbeatCadreOk = false;
+    heartbeatUnifiedStatus = 'unknown';
+    heartbeatCadreStatus = 'unknown';
     // 将状态重置为“未知”，但保留 UI 结构
     updateServiceStatusBar({ unified: 'unknown', cadre: 'unknown' });
 }
@@ -2051,6 +2533,11 @@ function stopHeartbeatPolling() {
         clearTimeout(heartbeatTimer);
         heartbeatTimer = null;
     }
+}
+
+/** 手动刷新心跳：执行一次检测，若某服务成功则标记为已成功，后续自动轮询将不再请求该服务 */
+function manualRefreshHeartbeat() {
+    checkAppHeartbeats();
 }
 
 function startHeartbeatPolling() {
@@ -2073,9 +2560,8 @@ function runHeartbeatCheckOnce() {
             return;
         }
 
-        // 如果两个服务都已经成功，则停止轮询
-        const bar = document.getElementById('serviceStatusBar');
-        if (bar && bar.querySelectorAll('.service-status-pill.success').length === 2) {
+        // 若两个服务均已成功，则停止轮询（已成功的服务不再请求）
+        if (heartbeatUnifiedOk && heartbeatCadreOk) {
             addLog('统一支撑与干部应用服务均已启动，停止心跳轮询。', 'success');
             if (heartbeatTimer) {
                 clearTimeout(heartbeatTimer);
@@ -2109,8 +2595,11 @@ function checkAppHeartbeats() {
     let cadreBaseUrl;
 
     if (middleware === 'tomcat') {
-        unifiedBaseUrl = buildTomcatBaseUrl(rawServerUrl, 8111);
-        cadreBaseUrl = buildTomcatBaseUrl(rawServerUrl, 8222);
+        // Tomcat 端口：由全局设置控制（默认 8111/8222）
+        const unifiedPort = Number(getGlobalSetting('tomcat.unifiedPort', 8111));
+        const cadrePort = Number(getGlobalSetting('tomcat.cadrePort', 8222));
+        unifiedBaseUrl = buildTomcatBaseUrl(rawServerUrl, unifiedPort);
+        cadreBaseUrl = buildTomcatBaseUrl(rawServerUrl, cadrePort);
     } else {
         const normalized = normalizeServerUrl(rawServerUrl);
         unifiedBaseUrl = normalized;
@@ -2120,16 +2609,19 @@ function checkAppHeartbeats() {
     const unifiedUrl = unifiedBaseUrl + '/tyzc-api/heartbeat';
     const cadreUrl = cadreBaseUrl + '/gbgl/heartbeat';
 
-    addLog('开始检测统一支撑服务心跳: ' + unifiedUrl, 'info');
-    addLog('开始检测干部应用服务心跳: ' + cadreUrl, 'info');
+    // 已成功的服务不再请求，只检测未成功的
+    const checkUnified = !heartbeatUnifiedOk;
+    const checkCadre = !heartbeatCadreOk;
+    if (checkUnified) addLog('开始检测统一支撑服务心跳: ' + unifiedUrl, 'info');
+    if (checkCadre) addLog('开始检测干部应用服务心跳: ' + cadreUrl, 'info');
 
-    // 通过后端代理心跳检测，避免浏览器跨域限制
+    // 通过后端代理心跳检测，避免浏览器跨域限制；未检测的传 null，后端不请求
     return fetch('/api/heartbeat/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            unifiedUrl: unifiedUrl,
-            cadreUrl: cadreUrl
+            unifiedUrl: checkUnified ? unifiedUrl : null,
+            cadreUrl: checkCadre ? cadreUrl : null
         })
     })
         .then(res => res.json())
@@ -2143,21 +2635,171 @@ function checkAppHeartbeats() {
             const unifiedUp = !!data.unifiedUp;
             const cadreUp = !!data.cadreUp;
 
-            if (data.unifiedMessage) {
+            if (checkUnified && data.unifiedMessage) {
                 addLog(data.unifiedMessage, unifiedUp ? 'success' : 'error');
             }
-            if (data.cadreMessage) {
+            if (checkCadre && data.cadreMessage) {
                 addLog(data.cadreMessage, cadreUp ? 'success' : 'error');
             }
 
+            // 只更新本次检测的那一项，另一项保留上次状态
+            if (checkUnified) {
+                heartbeatUnifiedStatus = unifiedUp ? 'success' : 'error';
+                if (unifiedUp) heartbeatUnifiedOk = true;
+            }
+            if (checkCadre) {
+                heartbeatCadreStatus = cadreUp ? 'success' : 'error';
+                if (cadreUp) heartbeatCadreOk = true;
+            }
             updateServiceStatusBar({
-                unified: unifiedUp ? 'success' : 'error',
-                cadre: cadreUp ? 'success' : 'error'
+                unified: heartbeatUnifiedStatus,
+                cadre: heartbeatCadreStatus
             });
         })
         .catch(err => {
             addLog('调用心跳检测接口异常: ' + err.message, 'error');
             updateServiceStatusBar({ unified: 'error', cadre: 'error' });
+        });
+}
+
+// ========== 全局设置弹窗（UI）==========
+
+/**
+ * 打开全局设置弹窗：先加载后端设置并回填表单
+ */
+function openGlobalSettingsModal() {
+    const backdrop = document.getElementById('globalSettingsModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+
+    // 首次绑定遮罩点击与 ESC 关闭事件（复用“帮助弹窗”的交互习惯）
+    if (!backdrop.dataset.bound) {
+        backdrop.dataset.bound = '1';
+        backdrop.addEventListener('click', function (e) {
+            if (e && e.target === backdrop) {
+                closeGlobalSettingsModal();
+            }
+        });
+        window.addEventListener('keydown', function (e) {
+            if (e && e.key === 'Escape') {
+                closeGlobalSettingsModal();
+            }
+        });
+    }
+
+    reloadGlobalSettings();
+}
+
+function closeGlobalSettingsModal() {
+    const backdrop = document.getElementById('globalSettingsModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'none';
+}
+
+/**
+ * 重载并回填全局设置
+ */
+function reloadGlobalSettings() {
+    return loadGlobalSettings().finally(() => {
+        const s = deployConfig.globalSettings || {};
+        // 默认中间件
+        const dm = document.getElementById('gs-default-middleware');
+        if (dm) dm.value = (s.defaultMiddlewareType || 'Tomcat');
+
+        // Tomcat 端口
+        const up = document.getElementById('gs-tomcat-unified-port');
+        const cp = document.getElementById('gs-tomcat-cadre-port');
+        const ap = document.getElementById('gs-tomcat-auth-port');
+        const strip = document.getElementById('gs-tomcat-auth-strip');
+        const jdkHomeInput = document.getElementById('gs-tomcat-jdk-home');
+        if (up) up.value = String(getGlobalSetting('tomcat.unifiedPort', 8111));
+        if (cp) cp.value = String(getGlobalSetting('tomcat.cadrePort', 8222));
+        if (ap) ap.value = String(getGlobalSetting('tomcat.authPort', 8111));
+        if (strip) strip.value = String(getGlobalSetting('tomcat.authUrlStripProtocol', true));
+        if (jdkHomeInput) jdkHomeInput.value = String(getGlobalSetting('tomcat.tomcatJdkHome', '') || '');
+
+        // 达梦连接串模板
+        const pfx = document.getElementById('gs-dm-prefix');
+        const sfx = document.getElementById('gs-dm-suffix');
+        if (pfx) pfx.value = String(getGlobalSetting('database.dm.connectionPrefix', 'jdbc:dm://'));
+        if (sfx) sfx.value = String(getGlobalSetting('database.dm.connectionSuffix', ''));
+
+        // YML ${type} 替换
+        const y = document.getElementById('gs-yml-ds-type');
+        if (y) y.value = String(getGlobalSetting('yml.datasourceTypeReplacement', 'com.alibaba.druid.pool.DruidDataSource'));
+    });
+}
+
+/**
+ * 保存全局设置到后端（JSON 持久化）
+ */
+function saveGlobalSettings() {
+    // 说明：直接构建与后端 GlobalSettings 对应的 JSON 结构
+    // 兼容说明：为支持旧版浏览器（如 Firefox 68），这里避免使用可选链 ?.，统一改为显式 DOM 判空
+    const elDefaultMiddleware = document.getElementById('gs-default-middleware');
+    const elUnifiedPort = document.getElementById('gs-tomcat-unified-port');
+    const elCadrePort = document.getElementById('gs-tomcat-cadre-port');
+    const elAuthPort = document.getElementById('gs-tomcat-auth-port');
+    const elAuthStrip = document.getElementById('gs-tomcat-auth-strip');
+    const elTomcatJdkHome = document.getElementById('gs-tomcat-jdk-home');
+    const elDmPrefix = document.getElementById('gs-dm-prefix');
+    const elDmSuffix = document.getElementById('gs-dm-suffix');
+    const elYmlDsType = document.getElementById('gs-yml-ds-type');
+
+    const payload = {
+        defaultMiddlewareType: ((elDefaultMiddleware && typeof elDefaultMiddleware.value === 'string'
+            ? elDefaultMiddleware.value
+            : 'Tomcat').trim()),
+        tomcat: {
+            unifiedPort: Number((elUnifiedPort && elUnifiedPort.value) || 8111),
+            cadrePort: Number((elCadrePort && elCadrePort.value) || 8222),
+            authPort: Number((elAuthPort && elAuthPort.value) || 8111),
+            authUrlStripProtocol: String((elAuthStrip && elAuthStrip.value) || 'true') === 'true',
+            // 说明：Tomcat JDK 路径允许为空字符串（表示使用系统默认 JAVA_HOME）
+            tomcatJdkHome: (elTomcatJdkHome && typeof elTomcatJdkHome.value === 'string'
+                ? elTomcatJdkHome.value.trim()
+                : '')
+        },
+        database: {
+            defaultType: String(getGlobalSetting('database.defaultType', '达梦') || '达梦'),
+            dm: {
+                connectionPrefix: (elDmPrefix && typeof elDmPrefix.value === 'string'
+                    ? elDmPrefix.value
+                    : 'jdbc:dm://'),
+                connectionSuffix: (elDmSuffix && typeof elDmSuffix.value === 'string'
+                    ? elDmSuffix.value
+                    : '')
+            }
+        },
+        yml: {
+            datasourceTypeReplacement: (elYmlDsType && typeof elYmlDsType.value === 'string'
+                ? elYmlDsType.value
+                : 'com.alibaba.druid.pool.DruidDataSource')
+        }
+    };
+
+    return fetch('/api/settings/global', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.success) {
+                deployConfig.globalSettings = data.settings || payload;
+                if (typeof Message !== 'undefined') {
+                    Message.success('全局设置已保存');
+                }
+            } else {
+                if (typeof Message !== 'undefined') {
+                    Message.error('保存失败: ' + (data && data.message ? data.message : '未知错误'));
+                }
+            }
+        })
+        .catch(err => {
+            if (typeof Message !== 'undefined') {
+                Message.error('保存失败: ' + err.message);
+            }
         });
 }
 

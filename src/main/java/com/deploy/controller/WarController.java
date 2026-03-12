@@ -52,27 +52,31 @@ public class WarController {
             Map<String, Object> wars = new HashMap<>();
 
             // 统一支撑 WAR：优先从外部 wars/tyzc 目录读取
-            List<String> unifiedWars = listWarFilesFromDir(WarPathUtil.getAppWarsDir("tyzc"));
-            if (unifiedWars.isEmpty()) {
+            List<Map<String, Object>> unifiedItems = listWarItemsFromDir(WarPathUtil.getAppWarsDir("tyzc"));
+            if (unifiedItems.isEmpty()) {
                 // 首次运行或目录为空时，尝试从 classpath 迁移内置 WAR 到外部目录
-                unifiedWars = migrateClasspathWarsToExternalDir(RESOURCE_WAR_TYZC_DIR, WarPathUtil.getAppWarsDir("tyzc"));
+                migrateClasspathWarsToExternalDir(RESOURCE_WAR_TYZC_DIR, WarPathUtil.getAppWarsDir("tyzc"));
+                unifiedItems = listWarItemsFromDir(WarPathUtil.getAppWarsDir("tyzc"));
             }
 
             // 干部应用 WAR：优先从外部 wars/gbgl 目录读取
-            List<String> cadreWars = listWarFilesFromDir(WarPathUtil.getAppWarsDir("gbgl"));
-            if (cadreWars.isEmpty()) {
+            List<Map<String, Object>> cadreItems = listWarItemsFromDir(WarPathUtil.getAppWarsDir("gbgl"));
+            if (cadreItems.isEmpty()) {
                 // 首次运行或目录为空时，尝试从 classpath 迁移内置 WAR 到外部目录
-                cadreWars = migrateClasspathWarsToExternalDir(RESOURCE_WAR_GBGL_DIR, WarPathUtil.getAppWarsDir("gbgl"));
+                migrateClasspathWarsToExternalDir(RESOURCE_WAR_GBGL_DIR, WarPathUtil.getAppWarsDir("gbgl"));
+                cadreItems = listWarItemsFromDir(WarPathUtil.getAppWarsDir("gbgl"));
             }
 
             // 返回WAR包列表（如果有多个，返回第一个作为默认值，同时返回完整列表，保持与前端现有接口兼容）
-            if (!unifiedWars.isEmpty()) {
-                wars.put("unified", unifiedWars.get(0));      // 默认使用第一个
-                wars.put("unifiedList", unifiedWars);         // 返回完整列表
+            if (!unifiedItems.isEmpty()) {
+                wars.put("unified", unifiedItems.get(0).get("name")); // 默认使用第一个
+                wars.put("unifiedItems", unifiedItems);               // 新格式：带大小/时间等信息
+                wars.put("unifiedList", extractNames(unifiedItems));  // 兼容旧格式：仅文件名数组
             }
-            if (!cadreWars.isEmpty()) {
-                wars.put("cadre", cadreWars.get(0));          // 默认使用第一个
-                wars.put("cadreList", cadreWars);             // 返回完整列表
+            if (!cadreItems.isEmpty()) {
+                wars.put("cadre", cadreItems.get(0).get("name"));     // 默认使用第一个
+                wars.put("cadreItems", cadreItems);                   // 新格式：带大小/时间等信息
+                wars.put("cadreList", extractNames(cadreItems));      // 兼容旧格式：仅文件名数组
             }
 
             result.put("success", true);
@@ -185,25 +189,58 @@ public class WarController {
     }
 
     /**
-     * 从指定目录读取所有 .war 文件名
-     * 说明：仅返回文件名字符串列表，不包含完整路径，便于前端显示和后续部署逻辑使用。
+     * 从指定目录读取所有 .war 文件信息
+     * 说明：返回包含 name/sizeBytes/lastModified 的 Map 列表，便于前端展示大小与修改时间。
      *
      * @param dir WAR 目录路径
-     * @return 该目录下所有 .war 文件名列表
+     * @return 该目录下所有 .war 文件信息列表
      * @throws java.io.IOException IO 异常
      */
-    private List<String> listWarFilesFromDir(Path dir) throws java.io.IOException {
-        List<String> warFiles = new ArrayList<>();
+    private List<Map<String, Object>> listWarItemsFromDir(Path dir) throws java.io.IOException {
+        List<Map<String, Object>> items = new ArrayList<>();
         if (dir == null || !Files.exists(dir)) {
-            return warFiles;
+            return items;
         }
         // Java 8 写法：遍历目录中文件并筛选出所有 .war 文件
         try (java.util.stream.Stream<Path> stream = Files.list(dir)) {
             stream.filter(path -> Files.isRegularFile(path)
                             && path.getFileName().toString().toLowerCase().endsWith(".war"))
-                    .forEach(path -> warFiles.add(path.getFileName().toString()));
+                    .forEach(path -> {
+                        try {
+                            Map<String, Object> info = new HashMap<>();
+                            info.put("name", path.getFileName().toString());
+                            info.put("sizeBytes", Files.size(path));
+                            info.put("lastModified", Files.getLastModifiedTime(path).toMillis());
+                            items.add(info);
+                        } catch (Exception e) {
+                            // 若读取元信息失败，至少返回文件名，避免影响列表展示
+                            Map<String, Object> info = new HashMap<>();
+                            info.put("name", path.getFileName().toString());
+                            items.add(info);
+                        }
+                    });
         }
-        return warFiles;
+        return items;
+    }
+
+    /**
+     * 从 warItems 中抽取文件名列表（用于兼容旧格式 unifiedList/cadreList）
+     */
+    private List<String> extractNames(List<Map<String, Object>> warItems) {
+        List<String> names = new ArrayList<>();
+        if (warItems == null) {
+            return names;
+        }
+        for (Map<String, Object> item : warItems) {
+            if (item == null) {
+                continue;
+            }
+            Object n = item.get("name");
+            if (n != null) {
+                names.add(String.valueOf(n));
+            }
+        }
+        return names;
     }
 
     /**

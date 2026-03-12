@@ -11,8 +11,12 @@
         * {
             box-sizing: border-box;
         }
-        body {
+        html, body {
             margin: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: #f1f5f9;
             color: #0f172a;
@@ -32,10 +36,13 @@
             border-radius: 4px;
         }
 
+        /* 固定高度、无整页滚动，左右区域各自内部滚动 */
         .layout {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            height: 100vh;
+            min-height: 0;
+            overflow: hidden;
         }
         .topbar {
             height: 52px;
@@ -93,6 +100,7 @@
             flex: 1;
             display: flex;
             min-height: 0;
+            overflow: hidden;
         }
         .sidebar {
             width: 260px;
@@ -101,6 +109,7 @@
             background: #f8fafc;
             padding: 16px 14px;
             overflow-y: auto;
+            min-height: 0;
         }
         .sidebar-section-title {
             font-size: 12px;
@@ -137,6 +146,7 @@
 
         .doc-main {
             flex: 1;
+            min-height: 0;
             padding: 18px 24px 32px;
             overflow-y: auto;
         }
@@ -202,12 +212,16 @@
                 padding: 14px 14px 24px;
             }
         }
-        /* 在 iframe 中展示时隐藏顶部导航，只保留目录 + 内容区域 */
+        /* 在 iframe 中展示时隐藏顶部导航，只保留目录 + 内容区域；同样禁止整页滚动 */
         body.embedded .topbar {
             display: none;
         }
+        body.embedded .layout {
+            height: 100%;
+        }
         body.embedded .content-shell {
             flex: 1;
+            min-height: 0;
         }
     </style>
 </head>

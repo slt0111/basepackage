@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
+import java.util.regex.Matcher;
 
 /**
  * Tomcat部署服务实现
@@ -69,6 +70,11 @@ public class TomcatDeployService {
         
         // 1. 获取或解压Tomcat目录
         String tomcatDir = extractTomcat(installDir, tomcatDirName);
+
+        // 1.1 在 Windows 上为当前 Tomcat 实例写入专用 JAVA_HOME（若配置了 tomcatJdkHome）
+        // 说明：部分目标环境要求 Tomcat 必须运行在 JDK 17 上，但本部署工具自身可能运行在 JDK 8，
+        //       因此通过在 setclasspath.bat 中设置 JAVA_HOME=tomcatJdkHome 的方式为 Tomcat 指定独立的 JDK。
+        configureTomcatJavaHome(tomcatDir, config);
         
         // 2. 获取该应用对应的端口配置
         List<PortConfig> appPorts = getPortsForApplication(appType, config.getPorts());
@@ -90,6 +96,74 @@ public class TomcatDeployService {
         // 6. 启动Tomcat服务
         DeployLogWebSocket.sendLog("正在启动" + appName + " Tomcat服务...");
         startTomcat(tomcatDir, config.getOsType(), appPorts);
+    }
+
+    /**
+     * 为 Tomcat 写入专用 JAVA_HOME（仅在 Windows 环境生效）
+     * @param tomcatDir Tomcat 根目录
+     * @param config    部署配置（包含 tomcatJdkHome 与 osType）
+     */
+    private void configureTomcatJavaHome(String tomcatDir, DeployConfig config) {
+        // 1. 仅在 Windows 环境下处理 setclasspath.bat
+        String os = config.getOsType() != null ? config.getOsType() : System.getProperty("os.name");
+        if (os == null || !os.toLowerCase().contains("win")) {
+            return;
+        }
+
+        // 2. 读取前端传入的专用 JDK 安装目录
+        String jdkHome = config.getTomcatJdkHome();
+        if (jdkHome == null || jdkHome.trim().isEmpty()) {
+            // 未显式配置时，不强制覆盖 setclasspath.bat，仅记录提示日志
+            DeployLogWebSocket.sendLog("提示: 未配置 Tomcat 专用 JDK 路径(tomcatJdkHome)，将使用系统默认 JAVA_HOME 启动 Tomcat。");
+            return;
+        }
+
+        File jdkHomeDir = new File(jdkHome.trim());
+        String normalizedJdkHome = jdkHomeDir.getAbsolutePath();
+
+        // 3. 定位 setclasspath.bat
+        File setClasspathFile = new File(tomcatDir + File.separator + "bin" + File.separator + "setclasspath.bat");
+        if (!setClasspathFile.exists()) {
+            DeployLogWebSocket.sendLog("警告: 未找到 Tomcat setclasspath.bat，无法写入 JAVA_HOME: " + setClasspathFile.getAbsolutePath());
+            return;
+        }
+
+        try {
+            String path = setClasspathFile.getAbsolutePath();
+            String content = FileUtil.readFileContent(path);
+
+            // 4. 将 set JAVA_HOME 行替换/插入到脚本中
+            // 说明：
+            // - 如果已有 set JAVA_HOME=XXX，则直接整行替换为新的目录
+            // - 如果没有，则在 @echo off 之后插入一行 set JAVA_HOME=...
+            // 注意：
+            // - 使用 replaceAll 时，replacement 字符串中的反斜杠会被当作转义字符，
+            //   若不做处理，C:\Program Files\Java\jdk-17 会被“吃掉反斜杠”变成 C:Program FilesJavajdk-17，
+            //   导致 Tomcat 日志中出现你看到的路径问题；
+            // - 这里通过 Matcher.quoteReplacement 进行转义，保证写入脚本的路径保持原样。
+            String newContent;
+            if (content.matches("(?is).*^\\s*set\\s+JAVA_HOME=.*$.*")) {
+                // 使用正则替换已有的 JAVA_HOME 设置（replacement 需使用 quoteReplacement 防止反斜杠丢失）
+                String replacementLine = "set JAVA_HOME=" + normalizedJdkHome;
+                newContent = content.replaceAll("(?im)^\\s*set\\s+JAVA_HOME=.*$",
+                        Matcher.quoteReplacement(replacementLine));
+            } else if (content.toLowerCase().contains("@echo off")) {
+                // 在 @echo off 后插入一行 set JAVA_HOME=...，同样需要对整个 replacement 做 quoteReplacement
+                String replacementBlock = "@echo off" + System.lineSeparator()
+                        + "set JAVA_HOME=" + normalizedJdkHome + System.lineSeparator();
+                newContent = content.replaceFirst("(?i)@echo off\\s*",
+                        Matcher.quoteReplacement(replacementBlock));
+            } else {
+                // 未找到 @echo off，则直接在文件开头追加设置行
+                newContent = "set JAVA_HOME=" + normalizedJdkHome + System.lineSeparator() + content;
+            }
+
+            FileUtil.writeFileContent(path, newContent);
+            DeployLogWebSocket.sendLog("已在 Tomcat setclasspath.bat 中设置 JAVA_HOME=" + normalizedJdkHome);
+        } catch (Exception e) {
+            // 出现异常时记录警告，但不阻断整体部署流程
+            DeployLogWebSocket.sendLog("警告: 写入 Tomcat setclasspath.bat 中的 JAVA_HOME 失败: " + e.getMessage());
+        }
     }
 
     /**
