@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>模拟数据导出帮助手册</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; height: 100%; overflow: hidden; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+        a { color: inherit; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            background: #e5e7eb;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .layout { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; }
+        .topbar {
+            height: 52px;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 8px; }
+        .topbar-logo-dot {
+            width: 10px; height: 10px; border-radius: 999px;
+            background: linear-gradient(135deg, #3b82f6, #22c55e);
+        }
+        .topbar-title { font-size: 15px; font-weight: 600; color: #0f172a; }
+        .topbar-subtitle { font-size: 12px; color: #64748b; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .btn {
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            background: #ffffff;
+            color: #0f172a;
+        }
+        .btn:hover { filter: brightness(0.97); }
+
+        .content-shell { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+        .sidebar {
+            width: 260px;
+            flex-shrink: 0;
+            border-right: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 16px 14px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .sidebar-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            margin: 10px 0 4px;
+        }
+        .toc-list { list-style: none; margin: 0; padding: 0; }
+        .toc-item { margin: 2px 0; }
+        .toc-link {
+            display: block;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #0f172a;
+        }
+        .toc-link.small { font-size: 12px; color: #475569; padding-left: 18px; }
+        .toc-link:hover { background: #e5edff; text-decoration: none; }
+
+        .doc-main { flex: 1; min-height: 0; padding: 18px 24px 32px; overflow-y: auto; }
+        .doc-main-inner { max-width: 900px; margin: 0 auto; }
+        .doc-main h1 { font-size: 24px; margin: 0 0 10px; }
+        .doc-main .doc-intro { font-size: 14px; color: #64748b; margin-bottom: 20px; line-height: 1.8; }
+        .doc-section { margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0; }
+        .doc-section:last-of-type { border-bottom: none; }
+        .doc-section h2 { font-size: 19px; margin: 6px 0 10px; }
+        .doc-section h3 { font-size: 15px; margin: 12px 0 6px; }
+        .doc-section p { font-size: 14px; margin: 4px 0 10px; color: #334155; line-height: 1.8; }
+        .doc-section ul { margin: 4px 0 10px 20px; padding: 0; font-size: 14px; color: #334155; line-height: 1.8; }
+        .doc-section li { margin: 0 0 6px; }
+        .doc-tag {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            margin-left: 6px;
+        }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .doc-main { padding: 14px 14px 24px; }
+        }
+
+        /* 在 iframe 中展示时隐藏顶部导航，只保留目录 + 内容区域；同样禁止整页滚动 */
+        body.embedded .topbar { display: none; }
+        body.embedded .layout { height: 100%; }
+        body.embedded .content-shell { flex: 1; min-height: 0; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <header class="topbar">
+        <div class="topbar-left">
+            <span class="topbar-logo-dot" aria-hidden="true"></span>
+            <div>
+                <div class="topbar-title">红云 · 运维工具台</div>
+                <div class="topbar-subtitle">模拟数据导出帮助手册</div>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <a href="export.html" class="btn">返回模拟数据导出</a>
+            <a href="index.html" class="btn">返回首页</a>
+        </div>
+    </header>
+
+    <div class="content-shell">
+        <!-- 左侧目录 -->
+        <aside class="sidebar" aria-label="模拟数据导出文档目录">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">概览</div>
+                <ul class="toc-list">
+                    <li class="toc-item"><a class="toc-link" href="#section-overview">1. 功能概览</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-quickstart">1.1 快速上手</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">导出流程</div>
+                <ul class="toc-list">
+                    <li class="toc-item"><a class="toc-link" href="#section-steps">2. 导出向导步骤</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-conn">2.1 填写连接信息</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-schema">2.2 选择用户模式</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-objects">2.3 选择导出对象</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-progress">2.4 进度与日志</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-download">2.5 下载 ZIP</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">产物结构</div>
+                <ul class="toc-list">
+                    <li class="toc-item"><a class="toc-link" href="#section-layout">3. 导出目录结构</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-table">3.1 表的 DDL 与数据 XML</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-non-table">3.2 非表对象的 DDL</a></li>
+                    <li class="toc-item"><a class="toc-link small" href="#section-report">3.3 导出报告文件</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">常见问题</div>
+                <ul class="toc-list">
+                    <li class="toc-item"><a class="toc-link" href="#section-troubleshoot-common">4. 常见问题与排查</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- 右侧文档内容 -->
+        <main class="doc-main">
+            <div class="doc-main-inner">
+                <section id="section-overview" class="doc-section">
+                    <h1>模拟数据导出帮助手册</h1>
+                    <p class="doc-intro">
+                        本手册面向一线使用人员，用<strong>非技术视角</strong>说明：
+                        “在哪个入口打开模拟数据导出、各个输入框应该填什么、导出的 ZIP 文件里有什么、后续大概能做什么用”。
+                        不要求读者了解数据库内部细节，只要跟着步骤操作即可。
+                    </p>
+                    <h2>1. 功能概览（能帮你做什么）</h2>
+                    <ul>
+                        <li>从达梦数据库中，<strong>按库（Schema）和对象</strong>选择需要的模拟数据。</li>
+                        <li>对表：同时导出<strong>表结构</strong>（建表语句）和<strong>表数据</strong>（XML 文件）。</li>
+                        <li>对视图 / 序列 / 存储过程等：导出对象的<strong>定义脚本</strong>（DDL）。</li>
+                        <li>所有内容打包成一个 <strong>ZIP 文件</strong>，方便传给其他环境或后续“模拟数据导入”功能使用。</li>
+                    </ul>
+                </section>
+
+                <section id="section-quickstart" class="doc-section">
+                    <h2>1.1 快速上手（5 步完成一次导出）</h2>
+                    <ul>
+                        <li><strong>第 1 步：打开入口</strong>  
+                            在首页点击“模拟数据导出”卡片，进入导出页面。</li>
+                        <li><strong>第 2 步：填写连接信息</strong>  
+                            根据下文“2.1 填写连接信息”，输入 JDBC 地址和 DBA 账号密码。</li>
+                        <li><strong>第 3 步：选库 + 选对象</strong>  
+                            根据下文“2.2 / 2.3”，先勾选需要的用户模式，再勾选要导出的表和其他对象。</li>
+                        <li><strong>第 4 步：开始导出</strong>  
+                            点击“确认清单并开始导出”，等待左侧进度条走完。</li>
+                        <li><strong>第 5 步：下载 ZIP</strong>  
+                            导出完成后点击“下载 ZIP”，文件名形如 <code>mockdata-20260312-203045.zip</code>。</li>
+                    </ul>
+                </section>
+
+                <section id="section-steps" class="doc-section">
+                    <h2>2. 导出向导步骤<span class="doc-tag">向导流程</span></h2>
+                    <h3 id="section-conn">2.1 填写连接信息（必填）</h3>
+                    <ul>
+                        <li><strong>JDBC 连接串</strong>（必填）  
+                            一般由运维或 DBA 提供，格式类似：
+                            <ul>
+                                <li><code>jdbc:dm://数据库IP:端口</code></li>
+                                <li>或 <code>jdbc:dm://数据库IP:端口/服务名</code>（如 <code>DAMENG</code>）。</li>
+                            </ul>
+                        </li>
+                        <li><strong>DBA 用户名 / 密码</strong>（必填）  
+                            需具备查看库结构和数据的权限，通常由 DBA 告知，例如：<code>SYSDBA</code>。</li>
+                        <li>填写完成后点击 <strong>“连接并加载模式”</strong>：
+                            <ul>
+                                <li>连接成功：下方会出现可选的用户模式列表。</li>
+                                <li>连接失败：请对照页面上的错误提示，检查 IP / 端口 / 账号密码。</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <h3 id="section-schema">2.2 选择用户模式（Schema）——选“哪些库”</h3>
+                    <ul>
+                        <li>左侧“用户模式”区域会显示当前连接下的所有非系统库（Schema）。</li>
+                        <li>通常一个系统会有 1～2 个业务 Schema，例如：<code>HY_ZGGL_FRAME</code>。</li>
+                        <li>常见操作：
+                            <ul>
+                                <li>只想导出某个业务库：只勾选对应这一行。</li>
+                                <li>多个库一起导出：可多选。</li>
+                                <li>系统库（SYS、PUBLIC 等）一般不需要勾选。</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <h3 id="section-objects">2.3 选择导出对象——选“哪些表和视图等”</h3>
+                    <ul>
+                        <li>点击“加载对象清单”后，中间列表会显示：
+                            <ul>
+                                <li>左侧：对象名称（如表名、视图名）。</li>
+                                <li>标记：对象类型（TABLE/VIEW 等）、所属 Schema、是否导出数据。</li>
+                            </ul>
+                        </li>
+                        <li>常用筛选方式：
+                            <ul>
+                                <li><strong>只导出表：</strong>把“对象类型”选择为 TABLE。</li>
+                                <li><strong>只看某个 Schema：</strong>在“模式（Schema）”下拉中选择对应项。</li>
+                                <li><strong>按名称搜索：</strong>在搜索框输入部分表名或前缀（例如 <code>A01</code> 或 <code>T_</code>）。</li>
+                            </ul>
+                        </li>
+                        <li>勾选规则：
+                            <ul>
+                                <li>一个对象前面勾选上，就会进入本次导出清单。</li>
+                                <li>右上角“全选（当前过滤结果）”只会影响当前筛选后的列表。</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <h3 id="section-progress">2.4 进度与日志——看导出进行到哪一步</h3>
+                    <ul>
+                        <li>点击“确认清单并开始导出”后，左侧“导出进度”会显示：
+                            <ul>
+                                <li><strong>进度条 + 百分比</strong>：基于对象总数实时更新。</li>
+                                <li><strong>耗时</strong>：导出中显示“已用时 XX 秒/分”，导出完成显示“总耗时 XX 分 XX 秒”。</li>
+                                <li><strong>导出结果摘要</strong>（任务完成后）：模式数 / 对象数 / 表数 / 总行数 + ZIP 文件大小。</li>
+                            </ul>
+                        </li>
+                        <li>右侧“导出日志”区域会实时输出关键步骤日志，便于排查导出异常。</li>
+                    </ul>
+
+                    <h3 id="section-download">2.5 下载 ZIP</h3>
+                    <ul>
+                        <li>进度条达到 100%，状态显示“成功”后，“下载 ZIP”按钮变为可点击。</li>
+                        <li>点击后会下载一个以 <code>mockdata-时间戳.zip</code> 命名的压缩包，例如 <code>mockdata-20260312-203045.zip</code>。</li>
+                        <li>该文件可以：
+                            <ul>
+                                <li>直接作为“模拟数据导入”功能的输入；</li>
+                                <li>或在本地解压，用文本编辑器查看其中的 DDL 和 XML 脚本。</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </section>
+
+                <section id="section-layout" class="doc-section">
+                    <h2>3. 导出目录结构</h2>
+                    <p>ZIP 内整体结构示例：</p>
+                    <pre style="font-size:12px;background:#0f172a;color:#e5e7eb;padding:10px;border-radius:8px;overflow:auto;">
+mockdata-YYYYMMDD-HHmmss.zip
+  SCHEMA_A/
+    TABLE/
+      A01.ddl.sql
+      A01.data.xml
+      B02.ddl.sql
+      B02.data.xml
+    VIEW/
+      VW_USER.ddl.sql
+    SEQUENCE/
+      SEQ_USER.ddl.sql
+    SYNONYM/
+      SYN_USER.ddl.sql
+    PROCEDURE/
+      P_CALC.ddl.sql
+    FUNCTION/
+      F_SCORE.ddl.sql
+    TRIGGER/
+      TRG_A01_INS.ddl.sql
+  SCHEMA_B/
+    ...
+  export-report.json
+  export-report.txt
+</pre>
+                    <p>说明：</p>
+                    <ul>
+                        <li>每个 Schema 一个顶级目录，例如 <code>SCHEMA_A</code>。</li>
+                        <li>Schema 下按对象类型再分子目录：<code>TABLE/VIEW/SEQUENCE/SYNONYM/PROCEDURE/FUNCTION/TRIGGER</code>。</li>
+                        <li>每个对象 <strong>只对应 1 个 DDL 文件</strong>，表额外有 1 个数据 XML 文件。</li>
+                    </ul>
+
+                    <h3 id="section-table">3.1 表的 DDL 与数据 XML</h3>
+                    <ul>
+                        <li>表 DDL 文件：<code>SCHEMA_X/TABLE/表名.ddl.sql</code>
+                            <ul>
+                                <li>内部包含 <code>CREATE TABLE</code> + 主键 + 必要索引等结构定义。</li>
+                            </ul>
+                        </li>
+                        <li>表数据文件：<code>SCHEMA_X/TABLE/表名.data.xml</code>
+                            <ul>
+                                <li>以 XML 形式逐行导出数据，兼容 CLOB/TEXT（使用 <![CDATA[...]]>）和 BLOB（二进制使用 Base64）。</li>
+                                <li>后续模拟数据导入可按该文件还原表数据。</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <h3 id="section-non-table">3.2 非表对象的 DDL</h3>
+                    <ul>
+                        <li>视图、序列、同义词、存储过程、函数、触发器等对象：
+                            <ul>
+                                <li>对应 DDL 文件位于各自类型目录下，例如 <code>SCHEMA_X/VIEW/VW_USER.ddl.sql</code>。</li>
+                                <li>内容为根据达梦数据字典视图解析出的定义；若当前环境无法完整解析，会写入包含原因的占位 DDL，不影响整体导出。</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <h3 id="section-report">3.3 导出报告文件</h3>
+                    <ul>
+                        <li><strong>export-report.json</strong>：
+                            <ul>
+                                <li>用于机器读取，包含 DDL/数据成功/失败计数、每个对象的导出结果（文件路径、行数、错误信息等）。</li>
+                            </ul>
+                        </li>
+                        <li><strong>export-report.txt</strong>：
+                            <ul>
+                                <li>便于人工查看，简要展示导出总数、成功/失败统计与失败对象清单。</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </section>
+
+                <section id="section-troubleshoot-common" class="doc-section">
+                    <h2>4. 常见问题与排查</h2>
+                    <ul>
+                        <li><strong>无法连接数据库 / schema 列表为空</strong>：
+                            <ul>
+                                <li>检查 JDBC 连接串、DBA 账号密码是否正确。</li>
+                                <li>确认应用服务器与数据库之间网络连通，端口未被防火墙拦截。</li>
+                            </ul>
+                        </li>
+                        <li><strong>部分对象 DDL 导出失败</strong>：
+                            <ul>
+                                <li>查看 <code>export-report.txt</code> 中的“失败详情”以及对应 <code>*.ddl.sql</code> 文件头部的错误说明。</li>
+                                <li>多数情况下是当前达梦版本的系统函数/字典视图兼容性问题，不影响其它对象导出。</li>
+                            </ul>
+                        </li>
+                        <li><strong>表数据导出失败</strong>：
+                            <ul>
+                                <li>同样参考 <code>export-report.txt</code> 以及日志中的具体 SQL 错误信息。</li>
+                                <li>检查对应表是否存在权限限制、锁等待或特殊数据类型兼容性问题。</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </section>
+            </div>
+        </main>
+    </div>
+</div>
+<script>
+    // 如果在 iframe 中展示（即嵌入导出页面弹窗），隐藏顶部导航栏与返回按钮区域
+    (function () {
+        try {
+            if (window.self !== window.top) {
+                document.body.classList.add('embedded');
+            }
+        } catch (e) {
+            // ignore
+        }
+    })();
+</script>
+</body>
+</html>
+

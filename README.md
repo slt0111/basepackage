@@ -221,7 +221,33 @@ tail -f logs/app-*.log
 ls -lt logs/ | head -5
 ```
 
-### 5. JVM参数配置
+### 5. 与 Tomcat / JDK 相关的行为说明
+
+- **Tomcat JDK 版本要求**
+  - 部署工具自身可以运行在 JDK 8+，但 **Tomcat 实例要求运行在 JDK 17 或更高版本**。
+  - 在「参数配置」第 1 步点击“下一步”时，系统会按以下顺序自动校验：
+    1. **优先检测当前环境 JDK**：调用 `/api/deploy/java/check`，如果当前 `java` 已是 JDK17+，直接通过；
+    2. **再检测全局配置中的 JDK 路径**：若环境 JDK 不是 17+，则读取全局设置中的 `Tomcat 专用 JDK17 安装目录`，调用 `/api/deploy/java/check?jdkHome=...` 校验该目录下的 `bin/java` 是否为 17+；
+    3. **最后弹窗要求重新配置**：若全局路径不存在或版本不对，会弹窗要求输入 JDK17 安装目录，二次校验通过后会自动写回全局设置，后续部署复用该路径。
+
+- **Tomcat 实际使用的 JDK**
+  - 若 **当前环境 JDK 已是 17+**：Tomcat 使用环境中的 `JAVA_HOME`/`java` 启动，不强制写入专用路径；
+  - 若 **通过全局配置提供了 JDK17 路径**：部署时会在每个 Tomcat 实例的 `bin/setclasspath.bat` 中写入一行：
+    - `set JAVA_HOME=C:\Program Files\Java\jdk-17`（示例路径）
+    - Windows 下通过 `startup.bat` 启动时，Tomcat 会优先使用这里指定的 JDK17。
+
+- **Tomcat 启动/停止方式**
+  - 启动：
+    - Windows：在后台执行 `<安装目录>\tomcat-tyzc\bin\startup.bat` / `<安装目录>\tomcat-gbgl\bin\startup.bat`，**不会弹出新的命令行窗口**；
+    - Linux：在后台执行 `bin/startup.sh`（部署前会自动为 `bin/*.sh` 添加执行权限）。
+  - 停止：
+    - 每次部署前会自动调用 `shutdown.bat` / `shutdown.sh` 关闭已运行的 Tomcat，并在必要时按端口强制结束进程；
+    - **关闭部署工具 JAR 并不会自动关闭 Tomcat**，Tomcat 会继续在后台占用端口运行。
+
+- **前端浏览器兼容性**
+  - 为兼容 **旧版本浏览器（例如 Firefox 68）**，前端脚本 `deploy.js` 中避免使用可选链（`?.` 等语法），统一改为显式 DOM 判空逻辑，确保部署向导在旧浏览器中也能正常使用。
+
+### 6. JVM参数配置
 
 如需调整JVM参数（内存大小等），可以编辑启动脚本中的 `JVM_OPTS` 变量：
 
@@ -277,6 +303,45 @@ basepackage/
 - `POST /api/deploy/config/save` - 保存配置
 - `GET /api/deploy/config/load` - 加载配置
 - WebSocket: `/ws/deploy-log` - 实时日志推送
+
+## 全局配置说明（Global Settings）
+
+- **配置入口与存储位置**
+  - 配置入口：部署页面右上角/侧边栏的“全局设置”按钮，点击后会弹出全局设置弹窗；
+  - 存储位置：后端将全局配置以 JSON 形式持久化在 `generated/settings/global-settings.json` 文件中；
+  - 加载流程：页面加载时前端调用 `GET /api/settings/global`，将返回的配置写入内存中的 `deployConfig.globalSettings`，作为各步骤的默认值来源。
+
+- **可配置项一览**
+  - **默认中间件类型**（`defaultMiddlewareType`）
+    - 作用：当“参数配置”中未明确选择中间件类型时，后端会使用这里配置的默认值（默认 `Tomcat`）。
+  - **Tomcat 默认端口**（`tomcat.unifiedPort` / `tomcat.cadrePort` / `tomcat.authPort` / `tomcat.authUrlStripProtocol`）
+    - 作用：
+      - 为端口配置步骤提供默认端口；
+      - 用于构造 `authurl`、服务检测等场景中默认使用的主机端口；
+      - `authUrlStripProtocol` 控制写入 YML 的 `${authurl}` 是否去掉 `http(s)://` 前缀。
+  - **Tomcat 专用 JDK17 安装目录**（`tomcat.tomcatJdkHome`）
+    - 作用：
+      - 当当前运行部署工具的 JDK 版本 **低于 17** 时，Tomcat 实例仍要求运行在 JDK17+ 上；
+      - 在“参数配置”第 1 步校验阶段，前端会调用 `/api/deploy/java/check?jdkHome=...`，验证此目录下的 `bin/java` 是否为 JDK17+；
+      - 校验通过后，该路径会被写回全局配置，并在部署时用于更新各实例 `bin/setclasspath.bat` 中的 `JAVA_HOME`，确保 Tomcat 使用此 JDK17 启动。
+  - **数据库默认类型与达梦连接串模板**（`database.defaultType`、`database.dm.connectionPrefix`、`database.dm.connectionSuffix`）
+    - 作用：
+      - 控制前端拼接数据库连接串的规则，例如默认 `jdbc:dm://{ip}`；
+      - 在“测试数据库连接”和替换 YML 模板中的占位符时，会使用这里配置的前缀/后缀；
+      - 便于现场根据实际库名、端口等调整连接串模板，而无需改代码。
+  - **YML 数据源类型替换**（`yml.datasourceTypeReplacement`）
+    - 作用：
+      - 控制 YML 模板中 `${type}` 占位符的替换值（默认 `com.alibaba.druid.pool.DruidDataSource`）；
+      - 若未来需要更换数据源实现，只需在全局设置中修改该值即可。
+
+- **全局配置与部署流程的关系**
+  - **页面加载阶段**：读取全局配置，为参数配置、端口配置、YML 模板等提供默认值；
+  - **参数配置阶段**：
+    - 使用 `GlobalSettings` 中的端口、数据库类型、JDK17 路径等信息进行校验；
+    - 若当前环境 JDK 不满足要求，会结合 `tomcat.tomcatJdkHome` 引导用户修正配置并持久化；
+  - **开始部署阶段**：
+    - 直接消费已经校验通过的全局配置（包括 Tomcat JDK 路径、端口策略、YML 模板规则等），不会再重复弹出 JDK 相关提示；
+    - 使得“全局设置一次，后续多次部署复用”，减少重复输入和环境差异带来的问题。
 
 ## 注意事项
 
