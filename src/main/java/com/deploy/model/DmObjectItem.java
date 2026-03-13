@@ -24,5 +24,11 @@ public class DmObjectItem {
      * 说明：表需要导数据 XML，其余对象只导 DDL。
      */
     private String type;
+
+    /**
+     * 对象注释
+     * 说明：来自达梦数据字典（例如 ALL_TAB_COMMENTS），前端可用于在列表中展示“名称(注释)”。
+     */
+    private String comment;
 }
 

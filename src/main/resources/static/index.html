@@ -363,6 +363,27 @@
             top: 21px;
         }
 
+        /* 模拟数据管理入口图标：使用双层卡片 + 箭头形状，强调“导出 / 导入”的双向流转 */
+        .entry-icon-mockdata {
+            background: radial-gradient(circle at top left, #22c55e, #0ea5e9);
+        }
+
+        .entry-icon-mockdata::before,
+        .entry-icon-mockdata::after {
+            content: '';
+            position: absolute;
+            inset: 9px;
+            border-radius: 12px;
+            border: 2px solid rgba(240, 253, 250, 0.92);
+        }
+
+        .entry-icon-mockdata::after {
+            inset: 15px 14px;
+            border-top: none;
+            border-left: none;
+            transform: rotate(0deg);
+        }
+
         .entry-content {
             flex: 1;
         }
@@ -423,6 +444,33 @@
             color: #047857;
             background: rgba(209, 250, 229, 0.96);
             border-color: rgba(45, 212, 191, 0.65);
+        }
+
+        /* 模拟数据管理卡片内的子入口区域：导出 / 导入 两个明确按钮 */
+        .entry-sub-actions {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .entry-sub-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #1d4ed8;
+            background: rgba(219, 234, 254, 0.96);
+            border: 1px solid rgba(129, 140, 248, 0.55);
+            text-decoration: none;
+        }
+
+        .entry-sub-link-muted {
+            color: #047857;
+            background: rgba(209, 250, 229, 0.96);
+            border-color: rgba(45, 212, 191, 0.6);
         }
 
         /* 页脚：固定底部，不参与滚动 */
@@ -545,6 +593,7 @@
                         <span class="home-chip">一键部署</span>
                         <span class="home-chip">多环境切换</span>
                         <span class="home-chip">数据库初始化</span>
+                        <span class="home-chip home-chip-quiet">模拟数据管理</span>
                         <span class="home-chip home-chip-quiet">运维提效</span>
                     </div>
 
@@ -605,22 +654,27 @@
                     <span class="entry-action">进入部署向导</span>
                 </a>
 
-                <!-- 模拟数据导出：独立能力入口（与一键部署并列） -->
-                <a class="entry-card entry-card-primary" href="export.html">
-                    <div class="entry-icon entry-icon-deploy" aria-hidden="true"></div>
+                <!-- 模拟数据管理：包含导出/导入两个子能力（导入功能待实现） -->
+                <div class="entry-card entry-card-primary">
+                    <!-- 说明：主卡片命名为「模拟数据管理」，卡片内部提供“模拟数据导出 / 模拟数据导入（待开发）”两个子入口，卡片本身不再整体可点击，避免单一跳转目标。 -->
+                    <div class="entry-icon entry-icon-mockdata" aria-hidden="true"></div>
                     <div class="entry-content">
-                        <h2 class="entry-title">模拟数据导出</h2>
+                        <h2 class="entry-title">模拟数据管理</h2>
                         <p class="entry-desc">
-                            基于配置模板选择目标数据库，导出每张表的结构（DDL）与数据（XML），并打包为单个 ZIP 下载。
+                            基于配置模板连接目标库，支持从业务库导出模拟数据（DDL + XML），后续将补充反向导入能力，覆盖常见联调与回归场景。
                         </p>
                         <ul class="entry-meta">
-                            <li>支持统一支撑 / 干部应用</li>
-                            <li>每表 DDL + XML（兼容 CLOB/TEXT）</li>
-                            <li>单个 ZIP（两库分目录）</li>
+                            <li>模拟数据导出：从达梦业务库按 Schema / 对象清单导出 DDL + XML</li>
+                            <li>模拟数据导入：将导出的 ZIP 一键导入目标达梦环境</li>
+                            <li>统一 ZIP 包管理，便于跨环境备份与流转</li>
                         </ul>
+                        <!-- 子入口按钮区：导出与导入分别对应 export.html / mock-import.html -->
+                        <div class="entry-sub-actions">
+                            <a class="entry-sub-link" href="export.html">模拟数据导出</a>
+                            <a class="entry-sub-link entry-sub-link-muted" href="mock-import.html">模拟数据导入</a>
+                        </div>
                     </div>
-                    <span class="entry-action">进入数据导出</span>
-                </a>
+                </div>
 
                 <a class="entry-card entry-card-secondary" href="#" onclick="return showDataInitTip();">
                     <div class="entry-icon entry-icon-data" aria-hidden="true"></div>
@@ -661,6 +715,16 @@
                 Message.alert('数据初始化功能待开发');
             } else {
                 alert('数据初始化功能待开发');
+            }
+            return false;
+        }
+
+        // 模拟数据导入入口提示：预留导入能力，避免用户误以为功能已可用
+        function showMockImportTip() {
+            if (typeof Message !== 'undefined') {
+                Message.alert('模拟数据导入功能规划中，当前仅支持模拟数据导出');
+            } else {
+                alert('模拟数据导入功能规划中，当前仅支持模拟数据导出');
             }
             return false;
         }

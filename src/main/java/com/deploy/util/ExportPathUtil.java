@@ -54,5 +54,36 @@ public class ExportPathUtil {
 
         return baseDir.toPath();
     }
+
+    /**
+     * 获取模拟数据导入根目录（与 mock-export 同级，用于上传 zip 与解压任务目录）
+     * 说明：目录结构为 generated/mock-import；uploads 与 jobId 子目录由 MockImportService 创建。
+     */
+    public static Path getMockImportBaseDir() {
+        ApplicationHome home = new ApplicationHome(ExportPathUtil.class);
+        File appDir = home.getDir();
+        File baseDir;
+        if (appDir != null) {
+            String path = appDir.getAbsolutePath();
+            if (path.endsWith("target" + File.separator + "classes")) {
+                File targetDir = appDir.getParentFile();
+                File projectRoot = (targetDir != null ? targetDir.getParentFile() : null);
+                if (projectRoot != null) {
+                    baseDir = new File(projectRoot, "generated" + File.separator + "mock-import");
+                } else {
+                    baseDir = new File("generated" + File.separator + "mock-import");
+                }
+            } else {
+                baseDir = new File(appDir, "generated" + File.separator + "mock-import");
+            }
+        } else {
+            baseDir = new File("generated" + File.separator + "mock-import");
+        }
+        try {
+            Files.createDirectories(baseDir.toPath());
+        } catch (Exception ignored) {
+        }
+        return baseDir.toPath();
+    }
 }
 

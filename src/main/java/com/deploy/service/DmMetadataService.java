@@ -60,6 +60,8 @@ public class DmMetadataService {
 
             for (String schema : schemas) {
                 List<DmObjectItem> items = new ArrayList<>();
+                // 说明：预先加载当前 schema 下对象注释映射，供后续对象条目复用，避免重复字典查询。
+                Map<String, String> comments = loadObjectComments(conn, schema);
 
                 // TABLE / VIEW
                 try (ResultSet rs = meta.getTables(catalog, schema, "%", new String[]{"TABLE", "VIEW"})) {
@@ -73,6 +75,8 @@ public class DmMetadataService {
                         it.setSchema(schema);
                         it.setName(name);
                         it.setType(type.toUpperCase());
+                        // 说明：为表/视图补充对象注释，前端可直接展示为“名称(注释)”。
+                        it.setComment(comments.getOrDefault(name, null));
                         items.add(it);
                     }
                 }
@@ -86,6 +90,7 @@ public class DmMetadataService {
                         it.setSchema(schema);
                         it.setName(name);
                         it.setType("PROCEDURE");
+                        // 说明：过程/函数等目前通常缺乏统一的注释视图，这里暂不填充 comment，保持字段可选。
                         items.add(it);
                     }
                 } catch (Exception e) {
@@ -169,6 +174,7 @@ public class DmMetadataService {
                     it.setSchema(schema);
                     it.setName(name);
                     it.setType(type);
+                    // 说明：序列/同义词/触发器等对象的注释依赖具体现场数据字典结构，这里暂不填充 comment。
                     items.add(it);
                 }
             }
@@ -177,6 +183,35 @@ public class DmMetadataService {
             DeployLogWebSocket.sendLog("[mock-export] 提示: 查询 " + viewName + " 失败（将忽略 " + type + " 清单）: " + e.getMessage());
         }
         return items;
+    }
+
+    /**
+     * 加载指定 schema 下表/视图的对象注释
+     * 说明：基于 ALL_TAB_COMMENTS 视图构建 name -> comment 映射，避免在遍历对象时重复查询字典。
+     */
+    private Map<String, String> loadObjectComments(Connection conn, String schema) {
+        Map<String, String> map = new HashMap<>();
+        String sql = "SELECT TABLE_NAME, COMMENTS FROM ALL_TAB_COMMENTS WHERE OWNER = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, schema);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String name = rs.getString(1);
+                    String comment = rs.getString(2);
+                    if (name == null || name.trim().isEmpty()) {
+                        continue;
+                    }
+                    // 说明：只缓存非空注释，避免无意义空字符串污染前端展示逻辑。
+                    if (comment != null && !comment.trim().isEmpty()) {
+                        map.put(name, comment);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // 说明：不同达梦版本/兼容模式下 ALL_TAB_COMMENTS 可能差异；失败时仅记录日志，不影响主流程。
+            DeployLogWebSocket.sendLog("[mock-export] 提示: 读取对象注释失败（将不返回 comment 字段） schema=" + schema + " err=" + e.getMessage());
+        }
+        return map;
     }
 
     private String safe(String s) {

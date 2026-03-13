@@ -4,7 +4,9 @@
 let currentJobId = '';
 let pollTimer = null;
 let cachedSchemas = [];
-let cachedObjects = []; // 扁平对象列表：{schema,name,type}
+let cachedObjects = []; // 扁平对象列表：{schema,name,type,comment}
+// 说明：selectedObjectKeys 记录“用户手动修改过选择状态”的对象 key（schema::type::name），用于在切换过滤条件时保留勾选/取消勾选结果。
+let selectedObjectKeys = {};
 
 function qs(id) {
     return document.getElementById(id);
@@ -163,6 +165,8 @@ function loadSchemas() {
 
     cachedSchemas = [];
     cachedObjects = [];
+    // 说明：重载对象清单时清空本地选择状态映射，避免历史选择污染新一轮导出。
+    selectedObjectKeys = {};
     renderSchemas([]);
     renderObjects([]);
     setStatusText('连接中，加载 schema 列表...');
@@ -250,7 +254,8 @@ function loadObjects() {
                 for (let i = 0; i < arr.length; i++) {
                     const o = arr[i];
                     if (o && o.schema && o.name && o.type) {
-                        flat.push({ schema: o.schema, name: o.name, type: o.type });
+                        // 说明：透传后端返回的对象注释字段 comment，方便前端在名称后拼接显示。
+                        flat.push({ schema: o.schema, name: o.name, type: o.type, comment: o.comment });
                     }
                 }
             });
@@ -341,8 +346,10 @@ function filterObjects(list) {
         if (f.schema && o.schema !== f.schema) continue;
         if (f.type && String(o.type || '').toUpperCase() !== f.type) continue;
         if (f.q) {
+            // 说明：搜索支持按名称和注释匹配，提升对象查找体验。
             const name = String(o.name || '').toLowerCase();
-            if (name.indexOf(f.q) < 0) continue;
+            const comment = String(o.comment || '').toLowerCase();
+            if (name.indexOf(f.q) < 0 && comment.indexOf(f.q) < 0) continue;
         }
         out.push(o);
     }
@@ -387,11 +394,20 @@ function renderObjects(objects) {
             const badgeType = '<span class="badge badge-strong">' + escapeHtml(typeUpper) + '</span>';
             const badgeMode = '<span class="badge">' + escapeHtml(schema) + '</span>';
             const badgeRule = isTable ? '<span class="badge badge-warn">DDL + XML</span>' : '<span class="badge">仅 DDL</span>';
+            // 说明：优先在对象标题后拼接注释文本，展示效果为“名称(注释)”。
+            const hasComment = o.comment && String(o.comment).trim() !== '';
+            const displayName = hasComment
+                ? (String(o.name) + ' (' + String(o.comment) + ')')
+                : String(o.name);
 
             html.push('<div class="obj-item">');
-            html.push('<input type="checkbox" data-obj="' + escapeHtml(key) + '" checked />');
+            // 说明：根据 selectedObjectKeys 中记录的状态还原勾选结果；未记录的对象默认选中。
+            var selected = Object.prototype.hasOwnProperty.call(selectedObjectKeys, key)
+                ? !!selectedObjectKeys[key]
+                : true;
+            html.push('<input type="checkbox" data-obj="' + escapeHtml(key) + '" ' + (selected ? 'checked ' : '') + 'onchange="onToggleObject(this)" />');
             html.push('<div class="obj-main">');
-            html.push('<div class="obj-title">' + escapeHtml(o.name) + '</div>');
+            html.push('<div class="obj-title">' + escapeHtml(displayName) + '</div>');
             html.push('<div class="obj-meta">' + badgeType + badgeRule + badgeMode + '</div>');
             html.push('</div>');
             html.push('</div>');
@@ -515,18 +531,16 @@ function downloadZip() {
 }
 
 function getSelectedObjects() {
-    const box = qs('objectBox');
-    if (!box) return [];
-    const inputs = box.querySelectorAll('input[type="checkbox"][data-obj]');
+    // 说明：从 cachedObjects + selectedObjectKeys 还原“全局选择结果”，避免因过滤导致未渲染对象丢失勾选状态。
     const selected = [];
-    for (let i = 0; i < inputs.length; i++) {
-        const cb = inputs[i];
-        if (cb && cb.checked) {
-            const raw = cb.getAttribute('data-obj') || '';
-            const parts = raw.split('::');
-            if (parts.length === 3) {
-                selected.push({ schema: parts[0], type: parts[1], name: parts[2] });
-            }
+    for (let i = 0; i < cachedObjects.length; i++) {
+        const o = cachedObjects[i];
+        if (!o) continue;
+        const key = o.schema + '::' + o.type + '::' + o.name;
+        const hasKey = Object.prototype.hasOwnProperty.call(selectedObjectKeys, key);
+        const isSelected = hasKey ? !!selectedObjectKeys[key] : true; // 未显式修改过的对象默认选中
+        if (isSelected) {
+            selected.push({ schema: o.schema, type: o.type, name: o.name });
         }
     }
     return selected;
@@ -538,7 +552,26 @@ function toggleAllObjects(checked) {
     // 说明：只操作当前过滤后渲染出来的对象（即“当前过滤结果”）
     const inputs = box.querySelectorAll('input[type="checkbox"][data-obj]');
     for (let i = 0; i < inputs.length; i++) {
+        // 说明：批量操作同时更新 DOM 和 selectedObjectKeys，确保切换过滤条件后选择状态依然准确。
         inputs[i].checked = !!checked;
+        onToggleObject(inputs[i]);
+    }
+}
+
+/**
+ * 单个对象勾选状态变更回调
+ * 说明：将复选框的勾选结果同步到 selectedObjectKeys；true 表示选中，false 表示取消选中。
+ */
+function onToggleObject(cb) {
+    if (!cb) return;
+    const raw = cb.getAttribute('data-obj') || '';
+    if (!raw) return;
+    if (cb.checked) {
+        // 选中：记录为 true，或可视为“显式选中”
+        selectedObjectKeys[raw] = true;
+    } else {
+        // 取消选中：记录为 false（不能直接删除，否则会回退到“默认选中”语义）
+        selectedObjectKeys[raw] = false;
     }
 }
 
