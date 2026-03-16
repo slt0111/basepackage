@@ -6,6 +6,7 @@ var currentJobId = '';
 var pollTimer = null;
 var previewSchemas = [];
 var previewObjectsBySchema = {};
+var cachedObjects = []; // 扁平对象列表：{schema,name,type}
 var ws = null;
 
 function qs(id) {
@@ -103,8 +104,7 @@ function validateConn(conn) {
 // 上传 zip，获得 fileId
 function uploadZip() {
     var fileInput = qs('zipFile');
-    var statusEl = qs('uploadStatus');
-    var btnPreview = qs('btnPreview');
+    var uploadStatusEl = qs('uploadStatus');
     if (!fileInput || !fileInput.files || !fileInput.files.length) {
         if (typeof Message !== 'undefined') Message.alert('请选择要上传的 zip 文件');
         else alert('请选择要上传的 zip 文件');
@@ -118,8 +118,7 @@ function uploadZip() {
     }
     var formData = new FormData();
     formData.append('file', file);
-    if (statusEl) statusEl.textContent = '上传中...';
-    if (btnPreview) btnPreview.disabled = true;
+    if (uploadStatusEl) uploadStatusEl.textContent = '上传中...';
 
     fetch('/api/mock-import/upload', {
         method: 'POST',
@@ -129,20 +128,18 @@ function uploadZip() {
         .then(function(data) {
             if (data && data.success && data.fileId) {
                 currentFileId = data.fileId;
-                if (statusEl) statusEl.textContent = '已上传: ' + file.name;
-                if (btnPreview) btnPreview.disabled = false;
+                if (uploadStatusEl) uploadStatusEl.textContent = '已上传: ' + file.name;
                 logLine('上传成功: ' + file.name + ' -> fileId=' + data.fileId);
+                // 上传成功后自动预览
+                previewZip();
             } else {
                 throw new Error((data && data.message) ? data.message : '上传失败');
             }
         })
         .catch(function(e) {
             console.error(e);
-            if (statusEl) statusEl.textContent = '上传失败';
+            if (uploadStatusEl) uploadStatusEl.textContent = '上传失败';
             logLine('上传失败: ' + e.message);
-        })
-        .finally(function() {
-            if (btnPreview) btnPreview.disabled = !currentFileId;
         });
 }
 
@@ -153,11 +150,10 @@ function previewZip() {
         else alert('请先上传 zip');
         return;
     }
-    var statusEl = qs('previewStatus');
     var schemaSection = qs('schemaSection');
     var schemaBox = qs('schemaBox');
     var btnStart = qs('btnStart');
-    if (statusEl) statusEl.textContent = '预览中...';
+    var importSummary = qs('importSummary');
 
     fetch('/api/mock-import/preview', {
         method: 'POST',
@@ -171,28 +167,59 @@ function previewZip() {
             }
             previewSchemas = data.schemas || [];
             previewObjectsBySchema = data.objectsBySchema || {};
-            var totalObj = 0;
+            
+            // 扁平化对象列表用于清单显示
+            cachedObjects = [];
             for (var s in previewObjectsBySchema) {
                 if (previewObjectsBySchema.hasOwnProperty(s)) {
-                    totalObj += (previewObjectsBySchema[s] || []).length;
+                    var objs = previewObjectsBySchema[s] || [];
+                    for (var i = 0; i < objs.length; i++) {
+                        var o = objs[i];
+                        if (o && o.schema && o.name && o.type) {
+                            cachedObjects.push({ 
+                                schema: o.schema, 
+                                name: o.name, 
+                                type: o.type,
+                                comment: o.comment || ''  // 添加注释字段
+                            });
+                        }
+                    }
                 }
             }
-            if (statusEl) statusEl.textContent = '共 ' + previewSchemas.length + ' 个 Schema，' + totalObj + ' 个对象';
+            
+            var totalObj = cachedObjects.length;
+            
+            // 显示导入简要描述
+            if (importSummary) {
+                importSummary.innerHTML = '<strong>导入包概览：</strong>包含 ' + previewSchemas.length + ' 个 Schema，' + totalObj + ' 个对象。<br>' +
+                    '<span style="color:#64748b;font-size:11px;">勾选下方 Schema 可动态筛选对象列表。</span>';
+            }
+            
             if (schemaSection) schemaSection.style.display = 'block';
             if (schemaBox) {
                 var html = [];
+                html.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">');
                 for (var i = 0; i < previewSchemas.length; i++) {
                     var s = previewSchemas[i];
-                    html.push('<label><input type="checkbox" data-schema="' + escapeHtml(s) + '" checked /> ' + escapeHtml(s) + '</label>');
+                    html.push(
+                        '<label class="check" style="background:#ffffff;">' +
+                        '<input type="checkbox" data-schema="' + escapeHtml(s) + '" checked onchange="onSchemaChange()" />' +
+                        '<div><div class="check-title">' + escapeHtml(s) + '</div></div>' +
+                        '</label>'
+                    );
                 }
+                html.push('</div>');
                 schemaBox.innerHTML = html.join('');
             }
+            
+            // 初始渲染对象清单（全部Schema）
+            renderObjectsBySelectedSchemas();
+            
             if (btnStart) btnStart.disabled = false;
             logLine('预览成功: ' + previewSchemas.length + ' schemas, ' + totalObj + ' objects');
         })
         .catch(function(e) {
             console.error(e);
-            if (statusEl) statusEl.textContent = '预览失败';
             logLine('预览失败: ' + e.message);
         });
 }
@@ -336,6 +363,87 @@ function connectLogWebSocket() {
         };
         ws.onerror = function() { logLine('日志通道异常'); };
     } catch (e) { console.error(e); }
+}
+
+function escapeHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+
+
+function onSchemaChange() {
+    renderObjectsBySelectedSchemas();
+}
+
+function getSelectedSchemasFromBox() {
+    var box = qs('schemaBox');
+    if (!box) return [];
+    var inputs = box.querySelectorAll('input[type="checkbox"][data-schema]:checked');
+    var sel = [];
+    for (var i = 0; i < inputs.length; i++) {
+        var s = inputs[i].getAttribute('data-schema');
+        if (s) sel.push(s);
+    }
+    return sel;
+}
+
+function renderObjectsBySelectedSchemas() {
+    var selectedSchemas = getSelectedSchemasFromBox();
+    var filtered = cachedObjects.filter(function(o) {
+        return selectedSchemas.indexOf(o.schema) >= 0;
+    });
+    renderObjects(filtered);
+}
+
+function renderObjects(objects) {
+    var box = qs('objectBox');
+    if (!box) return;
+    if (!objects || !objects.length) {
+        box.innerHTML = '<div class="muted">暂无对象（请勾选 Schema）</div>';
+        return;
+    }
+
+    var html = [];
+    // 按 schema 分组展示
+    var group = {};
+    for (var i = 0; i < objects.length; i++) {
+        var o = objects[i];
+        if (!group[o.schema]) group[o.schema] = [];
+        group[o.schema].push(o);
+    }
+
+        Object.keys(group).forEach(function(schema) {
+            html.push('<div style="margin:8px 0 6px;font-weight:800;font-size:12px;color:#0f172a;">' + escapeHtml(schema) + '</div>');
+            var arr = group[schema];
+            for (var j = 0; j < arr.length; j++) {
+                var o = arr[j];
+                var typeUpper = String(o.type || '').toUpperCase();
+                var isTable = typeUpper === 'TABLE';
+                var badgeType = '<span class="badge badge-strong">' + escapeHtml(typeUpper) + '</span>';
+                var badgeRule = isTable ? '<span class="badge badge-warn">DDL + XML</span>' : '<span class="badge">仅 DDL</span>';
+                
+                // 显示对象名称，如果有注释则在名称后添加注释
+                var nameHtml = escapeHtml(String(o.name));
+                var comment = o.comment || '';
+                if (comment && comment.trim() !== '') {
+                    nameHtml += ' <span class="comment">(' + escapeHtml(comment) + ')</span>';
+                }
+
+                html.push('<div class="obj-item">');
+                html.push('<div class="obj-main">');
+                html.push('<div class="obj-title">' + nameHtml + '</div>');
+                html.push('<div class="obj-meta">' + badgeType + badgeRule + '</div>');
+                html.push('</div>');
+                html.push('</div>');
+            }
+        });
+
+    box.innerHTML = html.join('');
 }
 
 (function init() {

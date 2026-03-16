@@ -90,7 +90,10 @@ public class DmMetadataService {
                         it.setSchema(schema);
                         it.setName(name);
                         it.setType("PROCEDURE");
-                        // 说明：过程/函数等目前通常缺乏统一的注释视图，这里暂不填充 comment，保持字段可选。
+                        // 说明：从注释映射中获取过程注释（如果可用）
+                        if (comments != null && comments.containsKey(name)) {
+                            it.setComment(comments.get(name));
+                        }
                         items.add(it);
                     }
                 } catch (Exception e) {
@@ -106,6 +109,10 @@ public class DmMetadataService {
                         it.setSchema(schema);
                         it.setName(name);
                         it.setType("FUNCTION");
+                        // 说明：从注释映射中获取函数注释（如果可用）
+                        if (comments != null && comments.containsKey(name)) {
+                            it.setComment(comments.get(name));
+                        }
                         items.add(it);
                     }
                 } catch (Exception e) {
@@ -113,9 +120,9 @@ public class DmMetadataService {
                 }
 
                 // SEQUENCE / SYNONYM / TRIGGER：尽量用 DM 的 ALL_* 视图查询
-                items.addAll(queryAllObjects(conn, schema, "SEQUENCE", "ALL_SEQUENCES", "SEQUENCE_NAME"));
-                items.addAll(queryAllObjects(conn, schema, "SYNONYM", "ALL_SYNONYMS", "SYNONYM_NAME"));
-                items.addAll(queryAllObjects(conn, schema, "TRIGGER", "ALL_TRIGGERS", "TRIGGER_NAME"));
+                items.addAll(queryAllObjects(conn, schema, "SEQUENCE", "ALL_SEQUENCES", "SEQUENCE_NAME", comments));
+                items.addAll(queryAllObjects(conn, schema, "SYNONYM", "ALL_SYNONYMS", "SYNONYM_NAME", comments));
+                items.addAll(queryAllObjects(conn, schema, "TRIGGER", "ALL_TRIGGERS", "TRIGGER_NAME", comments));
 
                 // 排序：type + name
                 items.sort((a, b) -> {
@@ -161,7 +168,7 @@ public class DmMetadataService {
                 || "GUEST".equals(s);
     }
 
-    private List<DmObjectItem> queryAllObjects(Connection conn, String schema, String type, String viewName, String colName) {
+    private List<DmObjectItem> queryAllObjects(Connection conn, String schema, String type, String viewName, String colName, Map<String, String> comments) {
         List<DmObjectItem> items = new ArrayList<>();
         String sql = "SELECT " + colName + " FROM " + viewName + " WHERE OWNER = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -174,7 +181,10 @@ public class DmMetadataService {
                     it.setSchema(schema);
                     it.setName(name);
                     it.setType(type);
-                    // 说明：序列/同义词/触发器等对象的注释依赖具体现场数据字典结构，这里暂不填充 comment。
+                    // 说明：从注释映射中获取对象注释
+                    if (comments != null && comments.containsKey(name)) {
+                        it.setComment(comments.get(name));
+                    }
                     items.add(it);
                 }
             }
@@ -186,11 +196,12 @@ public class DmMetadataService {
     }
 
     /**
-     * 加载指定 schema 下表/视图的对象注释
+     * 加载指定 schema 下所有对象的注释映射
      * 说明：基于 ALL_TAB_COMMENTS 视图构建 name -> comment 映射，避免在遍历对象时重复查询字典。
      */
     private Map<String, String> loadObjectComments(Connection conn, String schema) {
         Map<String, String> map = new HashMap<>();
+        // 1. 读取表和视图的注释
         String sql = "SELECT TABLE_NAME, COMMENTS FROM ALL_TAB_COMMENTS WHERE OWNER = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, schema);
@@ -209,8 +220,55 @@ public class DmMetadataService {
             }
         } catch (Exception e) {
             // 说明：不同达梦版本/兼容模式下 ALL_TAB_COMMENTS 可能差异；失败时仅记录日志，不影响主流程。
-            DeployLogWebSocket.sendLog("[mock-export] 提示: 读取对象注释失败（将不返回 comment 字段） schema=" + schema + " err=" + e.getMessage());
+            DeployLogWebSocket.sendLog("[mock-export] 提示: 读取表/视图注释失败 schema=" + schema + " err=" + e.getMessage());
         }
+        
+        // 2. 尝试读取序列的注释（如果存在 ALL_SEQUENCES 视图的 COMMENTS 列）
+        try {
+            String seqSql = "SELECT SEQUENCE_NAME, COMMENTS FROM ALL_SEQUENCES WHERE OWNER = ?";
+            try (PreparedStatement ps = conn.prepareStatement(seqSql)) {
+                ps.setString(1, schema);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String name = rs.getString(1);
+                        String comment = rs.getString(2);
+                        if (name == null || name.trim().isEmpty()) {
+                            continue;
+                        }
+                        if (comment != null && !comment.trim().isEmpty()) {
+                            map.put(name, comment);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // 序列注释可能不可用，忽略错误
+            DeployLogWebSocket.sendLog("[mock-export] 提示: 读取序列注释失败（将忽略） schema=" + schema + " err=" + e.getMessage());
+        }
+        
+        // 3. 尝试读取过程和函数的注释（如果存在 ALL_PROCEDURES 视图）
+        try {
+            String procSql = "SELECT OBJECT_NAME, COMMENTS FROM ALL_PROCEDURES WHERE OWNER = ? AND OBJECT_TYPE IN ('PROCEDURE', 'FUNCTION')";
+            try (PreparedStatement ps = conn.prepareStatement(procSql)) {
+                ps.setString(1, schema);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String name = rs.getString(1);
+                        String comment = rs.getString(2);
+                        if (name == null || name.trim().isEmpty()) {
+                            continue;
+                        }
+                        if (comment != null && !comment.trim().isEmpty()) {
+                            map.put(name, comment);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // 过程和函数注释可能不可用，忽略错误
+            DeployLogWebSocket.sendLog("[mock-export] 提示: 读取过程/函数注释失败（将忽略） schema=" + schema + " err=" + e.getMessage());
+        }
+        
         return map;
     }
 

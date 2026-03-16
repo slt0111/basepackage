@@ -540,7 +540,7 @@ function getSelectedObjects() {
         const hasKey = Object.prototype.hasOwnProperty.call(selectedObjectKeys, key);
         const isSelected = hasKey ? !!selectedObjectKeys[key] : true; // 未显式修改过的对象默认选中
         if (isSelected) {
-            selected.push({ schema: o.schema, type: o.type, name: o.name });
+            selected.push({ schema: o.schema, type: o.type, name: o.name, comment: o.comment });
         }
     }
     return selected;

@@ -98,6 +98,7 @@ public class DmExportRunner {
                     objResult.put("schema", schema);
                     objResult.put("type", type);
                     objResult.put("name", name);
+                    objResult.put("comment", obj.getComment());  // 对象注释
                     objResult.put("ddlFile", "");   // 相对 jobDir 的路径
                     objResult.put("ddlOk", false);
                     objResult.put("ddlError", "");

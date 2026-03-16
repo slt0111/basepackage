@@ -79,6 +79,7 @@ public class MockExportController {
                 it.setSchema((String) o.get("schema"));
                 it.setName((String) o.get("name"));
                 it.setType((String) o.get("type"));
+                it.setComment((String) o.get("comment"));  // 读取前端传递的注释
                 if (it.getSchema() != null && it.getName() != null && it.getType() != null) {
                     objects.add(it);
                 }
