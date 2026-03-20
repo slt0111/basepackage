@@ -25,6 +25,63 @@ function clearLog() {
     if (box) box.textContent = '';
 }
 
+// 复制右侧日志区域内容：交互类似代码块“点击复制”
+function copyLogToClipboard() {
+    const box = qs('logBox');
+    const content = box ? (box.textContent || '') : '';
+    if (!content || content.replace(/^\s+|\s+$/g, '') === '') {
+        if (typeof Message !== 'undefined' && Message.warning) Message.warning('日志为空，无法复制');
+        else alert('日志为空，无法复制');
+        return;
+    }
+
+    // 首选 Clipboard API（新浏览器）
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content)
+            .then(function () {
+                if (typeof Message !== 'undefined' && Message.success) Message.success('复制成功');
+                else alert('复制成功');
+            })
+            .catch(function () {
+                // 回退：兼容旧浏览器/权限受限场景
+                fallbackCopyText(content);
+            });
+        return;
+    }
+
+    // 回退：兼容旧浏览器/不支持 Clipboard API 场景
+    fallbackCopyText(content);
+}
+
+function fallbackCopyText(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '-9999px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+
+    let ok = false;
+    try {
+        ok = document.execCommand && document.execCommand('copy');
+    } catch (e) {
+        ok = false;
+    }
+
+    document.body.removeChild(ta);
+    if (ok) {
+        if (typeof Message !== 'undefined' && Message.success) Message.success('复制成功');
+        else alert('复制成功');
+    } else {
+        if (typeof Message !== 'undefined' && Message.warning) Message.warning('复制失败，请手动选择复制');
+        else alert('复制失败，请手动选择复制');
+    }
+}
+
 function setStatusText(text) {
     const el = qs('statusText');
     if (el) el.textContent = '状态：' + text;

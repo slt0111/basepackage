@@ -299,8 +299,10 @@
         <section class="panel log-panel" aria-label="导入日志">
             <div class="log-actions">
                 <div class="pill" id="pillJob">job: -</div>
-                <div class="row" style="max-width: 280px;">
+                <div class="row" style="max-width: 360px;">
                     <button type="button" class="btn btn-secondary" onclick="clearLog()">清空日志</button>
+                    <!-- 复制当前导入任务的右侧日志内容（整段文本） -->
+                    <button type="button" class="btn btn-secondary" onclick="copyLogToClipboard()" title="复制当前导入日志">复制日志</button>
                     <button type="button" class="btn btn-secondary" onclick="pollStatusOnce()">刷新状态</button>
                 </div>
             </div>
