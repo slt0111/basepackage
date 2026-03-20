@@ -2,3 +2,6 @@
 /.cursor
 /.idea
 /target
+# 说明：忽略运行期生成产物目录（含导入/导出中间文件与结果文件）
+/generated/
+/configs/

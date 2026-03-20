@@ -166,6 +166,30 @@ public class MockImportService {
         return jobs.get(jobId);
     }
 
+    /**
+     * 读取导入报告 JSON（import-report.json）
+     * 说明：供前端页面展示导入结果清单与失败明细。
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> readImportReportJson(String jobId) throws Exception {
+        Path json = resolveImportReportFile(jobId, "json");
+        if (!Files.exists(json)) {
+            throw new IllegalArgumentException("导入报告不存在（任务可能未完成）: " + jobId);
+        }
+        return objectMapper.readValue(Files.readAllBytes(json), Map.class);
+    }
+
+    /**
+     * 定位导入报告文件路径
+     * @param format json 或 txt
+     */
+    public Path resolveImportReportFile(String jobId, String format) {
+        String fmt = (format == null || format.trim().isEmpty()) ? "json" : format.trim().toLowerCase(Locale.ROOT);
+        String fileName = "import-report." + ("txt".equals(fmt) ? "txt" : "json");
+        Path baseDir = ExportPathUtil.getMockImportBaseDir();
+        return baseDir.resolve(jobId).resolve(fileName);
+    }
+
     private void runJob(String jobId, DmConnectionRequest conn, Path jobDir, ImportOptions options) {
         MockImportJobStatus status = jobs.get(jobId);
         if (status == null) return;

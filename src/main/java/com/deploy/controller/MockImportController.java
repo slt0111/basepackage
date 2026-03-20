@@ -5,10 +5,15 @@ import com.deploy.model.DmObjectItem;
 import com.deploy.model.ImportOptions;
 import com.deploy.model.MockImportJobStatus;
 import com.deploy.service.MockImportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -170,5 +175,50 @@ public class MockImportController {
         result.put("success", true);
         result.put("job", job);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 获取导入报告（JSON 结构）
+     * 说明：任务执行完成后，DmImportRunner 会在 job 解压目录写入 import-report.json / import-report.txt。
+     */
+    @GetMapping("/report/{jobId}")
+    public ResponseEntity<Map<String, Object>> report(@PathVariable String jobId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Map<String, Object> report = mockImportService.readImportReportJson(jobId);
+            result.put("success", true);
+            result.put("report", report);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", "读取导入报告失败: " + e.getMessage());
+            return ResponseEntity.ok(result);
+        }
+    }
+
+    /**
+     * 下载导入报告文件（JSON 或 TXT）
+     * 请求：GET /api/mock-import/report-download/{jobId}?format=json|txt
+     */
+    @GetMapping("/report-download/{jobId}")
+    public ResponseEntity<byte[]> downloadReport(@PathVariable String jobId,
+                                                 @RequestParam(value = "format", required = false, defaultValue = "json") String format) {
+        try {
+            Path file = mockImportService.resolveImportReportFile(jobId, format);
+            if (!Files.exists(file)) {
+                return ResponseEntity.notFound().build();
+            }
+            byte[] bytes = Files.readAllBytes(file);
+            String fileName = file.getFileName().toString();
+
+            MediaType mt = "txt".equalsIgnoreCase(format) ? MediaType.TEXT_PLAIN : MediaType.APPLICATION_JSON;
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                    .contentType(mt)
+                    .body(bytes);
+        } catch (Exception e) {
+            byte[] msg = ("下载导入报告失败: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+            return ResponseEntity.status(500).contentType(MediaType.TEXT_PLAIN).body(msg);
+        }
     }
 }

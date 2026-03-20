@@ -8,6 +8,7 @@ var previewSchemas = [];
 var previewObjectsBySchema = {};
 var cachedObjects = []; // 扁平对象列表：{schema,name,type}
 var ws = null;
+var lastLoadedReportJobId = '';
 
 function qs(id) {
     return document.getElementById(id);
@@ -347,6 +348,8 @@ function pollStatusOnce() {
                 stopPolling();
                 if (btnStart) btnStart.disabled = false;
                 logLine(st === 'SUCCESS' ? ('导入完成: ' + (job.summary || '')) : ('导入失败: ' + (job.message || '')));
+                // 说明：任务结束后自动加载导入报告，展示成功/失败清单，并提供下载入口
+                loadImportReport();
             }
         })
         .catch(function(e) { console.error(e); });
@@ -444,6 +447,106 @@ function renderObjects(objects) {
         });
 
     box.innerHTML = html.join('');
+}
+
+// 下载导入报告（JSON/TXT）
+// 说明：任务结束后可下载 import-report.json 或 import-report.txt，便于离线排查。
+function downloadImportReport(format) {
+    if (!currentJobId) {
+        logLine('无法下载报告：jobId 为空');
+        return;
+    }
+    var fmt = (format === 'txt') ? 'txt' : 'json';
+    window.location.href = '/api/mock-import/report-download/' + encodeURIComponent(currentJobId) + '?format=' + encodeURIComponent(fmt);
+}
+
+// 加载并渲染导入报告
+// 说明：从后端读取 import-report.json，并在页面上展示失败明细清单。
+function loadImportReport() {
+    if (!currentJobId) return;
+    fetch('/api/mock-import/report/' + encodeURIComponent(currentJobId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data || !data.success || !data.report) {
+                var msg = (data && data.message) ? data.message : '读取导入报告失败';
+                renderImportReport(null, msg);
+                return;
+            }
+            lastLoadedReportJobId = currentJobId;
+            renderImportReport(data.report, '');
+        })
+        .catch(function(e) {
+            console.error(e);
+            renderImportReport(null, e.message);
+        });
+}
+
+function renderImportReport(report, errMsg) {
+    var box = qs('resultBox');
+    var pill = qs('resultJobPill');
+    var summary = qs('resultSummary');
+    var failList = qs('failList');
+    var btnJson = qs('btnDownloadJson');
+    var btnTxt = qs('btnDownloadTxt');
+    if (pill) pill.textContent = 'job: ' + (currentJobId || '-');
+    if (!box) return;
+    box.style.display = 'block';
+    if (btnJson) btnJson.disabled = !currentJobId;
+    if (btnTxt) btnTxt.disabled = !currentJobId;
+
+    if (!report) {
+        if (summary) summary.textContent = errMsg ? ('读取报告失败：' + errMsg) : '暂无导入报告（任务可能未完成）';
+        if (failList) failList.innerHTML = '<div class="muted">无失败明细</div>';
+        return;
+    }
+
+    var ddlSuccess = report.ddlSuccess || 0;
+    var ddlFailed = report.ddlFailed || 0;
+    var dataSuccess = report.dataSuccess || 0;
+    var dataFailed = report.dataFailed || 0;
+    var totalObjects = report.totalObjects || 0;
+    if (summary) {
+        summary.innerHTML = '对象总数：<strong>' + totalObjects + '</strong>；DDL 成功/失败：<strong>' + ddlSuccess + '</strong>/<strong>' + ddlFailed + '</strong>；数据 成功/失败：<strong>' + dataSuccess + '</strong>/<strong>' + dataFailed + '</strong>';
+    }
+
+    var objects = report.objects || [];
+    var fails = [];
+    for (var i = 0; i < objects.length; i++) {
+        var o = objects[i] || {};
+        var ddlOk = !!o.ddlOk;
+        var dataOk = !!o.dataOk;
+        var type = String(o.type || '');
+        var ddlErr = String(o.ddlError || '');
+        var dataErr = String(o.dataError || '');
+        // 说明：展示 DDL 或数据有失败/错误信息的对象
+        if (!ddlOk || ddlErr || (!dataOk && (type.toUpperCase() === 'TABLE') && dataErr)) {
+            fails.push(o);
+        }
+    }
+
+    if (failList) {
+        if (!fails.length) {
+            failList.innerHTML = '<div class="muted">全部对象导入成功（无失败明细）</div>';
+        } else {
+            var max = 80;
+            var html = [];
+            html.push('<div style="font-weight:800;font-size:12px;color:#0f172a;">失败明细（展示前 ' + Math.min(max, fails.length) + ' 条）</div>');
+            for (var j = 0; j < fails.length && j < max; j++) {
+                var f = fails[j] || {};
+                var title = escapeHtml(String(f.schema || '') + '.' + String(f.name || '') + ' (' + String(f.type || '') + ')');
+                var d1 = f.ddlError ? ('DDL：' + escapeHtml(String(f.ddlError))) : '';
+                var d2 = f.dataError ? ('数据：' + escapeHtml(String(f.dataError))) : '';
+                html.push('<div class="fail-item"><div><strong>' + title + '</strong></div>');
+                if (d1) html.push('<div class="muted">' + d1 + '</div>');
+                if (d2) html.push('<div class="muted">' + d2 + '</div>');
+                html.push('</div>');
+            }
+            if (fails.length > max) {
+                html.push('<div class="muted">还有 ' + (fails.length - max) + ' 条失败未展示，请下载报告查看完整清单。</div>');
+            }
+            failList.innerHTML = html.join('');
+        }
+    }
 }
 
 (function init() {

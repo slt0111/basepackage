@@ -82,42 +82,12 @@ public class DmMetadataService {
                 }
 
                 // PROCEDURE
-                try (ResultSet rs = meta.getProcedures(catalog, schema, "%")) {
-                    while (rs.next()) {
-                        String name = rs.getString("PROCEDURE_NAME");
-                        if (name == null || name.trim().isEmpty()) continue;
-                        DmObjectItem it = new DmObjectItem();
-                        it.setSchema(schema);
-                        it.setName(name);
-                        it.setType("PROCEDURE");
-                        // 说明：从注释映射中获取过程注释（如果可用）
-                        if (comments != null && comments.containsKey(name)) {
-                            it.setComment(comments.get(name));
-                        }
-                        items.add(it);
-                    }
-                } catch (Exception e) {
-                    DeployLogWebSocket.sendLog("[mock-export] 提示: 读取 PROCEDURE 元数据失败（将忽略）: " + e.getMessage());
-                }
+                // 说明：达梦 JDBC 的 getProcedures()/getFunctions() 在部分版本可能返回重复/混淆记录，
+                // 这里改为直接查询 ALL_PROCEDURES 并按 OBJECT_TYPE 过滤，避免同名对象同时落入 PROCEDURE/FUNCTION 目录。
+                items.addAll(queryRoutines(conn, schema, "PROCEDURE", comments));
 
                 // FUNCTION
-                try (ResultSet rs = meta.getFunctions(catalog, schema, "%")) {
-                    while (rs.next()) {
-                        String name = rs.getString("FUNCTION_NAME");
-                        if (name == null || name.trim().isEmpty()) continue;
-                        DmObjectItem it = new DmObjectItem();
-                        it.setSchema(schema);
-                        it.setName(name);
-                        it.setType("FUNCTION");
-                        // 说明：从注释映射中获取函数注释（如果可用）
-                        if (comments != null && comments.containsKey(name)) {
-                            it.setComment(comments.get(name));
-                        }
-                        items.add(it);
-                    }
-                } catch (Exception e) {
-                    DeployLogWebSocket.sendLog("[mock-export] 提示: 读取 FUNCTION 元数据失败（将忽略）: " + e.getMessage());
-                }
+                items.addAll(queryRoutines(conn, schema, "FUNCTION", comments));
 
                 // SEQUENCE / SYNONYM / TRIGGER：尽量用 DM 的 ALL_* 视图查询
                 items.addAll(queryAllObjects(conn, schema, "SEQUENCE", "ALL_SEQUENCES", "SEQUENCE_NAME", comments));
@@ -191,6 +161,38 @@ public class DmMetadataService {
         } catch (Exception e) {
             // 说明：不同 DM 版本/兼容模式下系统视图可能差异；失败时不抛出，避免阻断导出向导。
             DeployLogWebSocket.sendLog("[mock-export] 提示: 查询 " + viewName + " 失败（将忽略 " + type + " 清单）: " + e.getMessage());
+        }
+        return items;
+    }
+
+    /**
+     * 查询过程/函数清单（按 OBJECT_TYPE 精确区分）
+     * 说明：用于替代 JDBC DatabaseMetaData.getProcedures()/getFunctions()，避免在达梦驱动下出现重复/混淆。
+     */
+    private List<DmObjectItem> queryRoutines(Connection conn, String schema, String routineType, Map<String, String> comments) {
+        List<DmObjectItem> items = new ArrayList<>();
+        String t = safe(routineType).toUpperCase(Locale.ROOT);
+        String sql = "SELECT OBJECT_NAME FROM ALL_PROCEDURES WHERE OWNER = ? AND OBJECT_TYPE = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, schema);
+            ps.setString(2, t);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String name = rs.getString(1);
+                    if (name == null || name.trim().isEmpty()) continue;
+                    DmObjectItem it = new DmObjectItem();
+                    it.setSchema(schema);
+                    it.setName(name);
+                    it.setType(t);
+                    // 说明：从注释映射中获取过程/函数注释（如果可用）
+                    if (comments != null && comments.containsKey(name)) {
+                        it.setComment(comments.get(name));
+                    }
+                    items.add(it);
+                }
+            }
+        } catch (Exception e) {
+            DeployLogWebSocket.sendLog("[mock-export] 提示: 查询 ALL_PROCEDURES 失败（将忽略 " + t + " 清单） schema=" + schema + " err=" + e.getMessage());
         }
         return items;
     }

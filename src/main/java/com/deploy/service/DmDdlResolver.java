@@ -6,6 +6,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 达梦 DDL 解析器
@@ -64,30 +66,124 @@ public class DmDdlResolver {
     }
 
     private String ddlForTrigger(Connection conn, String schema, String triggerName) throws Exception {
-        // 说明：达梦触发器体一般在 ALL_TRIGGERS.TRIGGER_BODY；头部信息可按需补齐。
-        String sql = "SELECT TRIGGER_BODY FROM ALL_TRIGGERS WHERE OWNER = ? AND TRIGGER_NAME = ?";
+        // 说明：尽量从 ALL_TRIGGERS 还原完整的 CREATE TRIGGER 语句（包含头部 + BODY），
+        // 字段名在不同达梦版本可能略有差异，如获取失败则退化为占位 DDL。
+        String sql = "SELECT TRIGGER_TYPE, TRIGGERING_EVENT, TABLE_OWNER, TABLE_NAME, WHEN_CLAUSE, TRIGGER_BODY " +
+                "FROM ALL_TRIGGERS WHERE OWNER = ? AND TRIGGER_NAME = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, schema);
             ps.setString(2, triggerName);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    String body = rs.getString(1);
+                    String trigType = safe(rs.getString("TRIGGER_TYPE"));          // BEFORE/AFTER/INSTEAD OF ...
+                    String event = safe(rs.getString("TRIGGERING_EVENT"));         // INSERT/UPDATE/DELETE 或组合
+                    String tableOwner = safe(rs.getString("TABLE_OWNER"));
+                    String tableName = safe(rs.getString("TABLE_NAME"));
+                    String whenClause = rs.getString("WHEN_CLAUSE");
+                    String body = rs.getString("TRIGGER_BODY");
                     if (body == null) body = "";
-                    return "-- mock-export\n-- TRIGGER BODY (可能需要结合触发时机/事件/表名信息手工完善)\n" + body + "\n";
+
+                    StringBuilder ddl = new StringBuilder();
+                    ddl.append("-- mock-export\n");
+                    ddl.append("CREATE OR REPLACE TRIGGER ").append(schema).append(".").append(triggerName).append("\n");
+                    if (!trigType.isEmpty()) {
+                        ddl.append("  ").append(trigType).append(" ");
+                    }
+                    if (!event.isEmpty()) {
+                        ddl.append(event).append("\n");
+                    }
+                    if (!tableOwner.isEmpty() && !tableName.isEmpty()) {
+                        ddl.append("  ON ").append(tableOwner).append(".").append(tableName).append("\n");
+                    }
+                    if (whenClause != null && !whenClause.trim().isEmpty()) {
+                        ddl.append("  WHEN (").append(whenClause.trim()).append(")\n");
+                    }
+                    ddl.append("BEGIN\n");
+                    ddl.append(body.trim()).append("\n");
+                    ddl.append("END;\n");
+                    // 说明：追加 "/" 作为脚本分隔符，便于导入端将整个 PL/SQL 块作为单条语句执行。
+                    ddl.append("/\n");
+                    return ddl.toString();
                 }
             }
+        } catch (Exception e) {
+            // 说明：字段名/视图在不同 DM 版本可能不同，抛出给上层生成占位 DDL。
+            throw e;
         }
-        return placeholder(schema, "TRIGGER", triggerName, "ALL_TRIGGERS 未返回 TRIGGER_BODY");
+        return placeholder(schema, "TRIGGER", triggerName, "ALL_TRIGGERS 未返回触发器定义");
     }
 
     private String ddlForRoutine(Connection conn, String schema, String routineType, String name) throws Exception {
-        // 说明：常见做法是拼 ALL_SOURCE（或 USER_SOURCE）文本，这里尝试 ALL_SOURCE。
+        // 说明：常见做法是拼 ALL_SOURCE（或 USER_SOURCE）文本，这里优先按 routineType 精确查询；
+        // 但在部分达梦版本/兼容模式下，ALL_SOURCE.TYPE 可能出现归类差异（例如函数以 PROCEDURE 形式存储），因此提供兜底查询。
+        String ddl = readRoutineSource(conn, schema, name, routineType);
+        if (ddl != null && !ddl.trim().isEmpty()) {
+            // 说明：过程/函数的源码可能未带 schema，这里对 CREATE 头部做一次补全，避免导入时落到默认 schema。
+            String qualified = qualifyRoutineCreateHeader(schema, ddl);
+            // 说明：追加 "/" 作为脚本分隔符，便于导入端将整个 PL/SQL 块作为单条语句执行。
+            return "-- mock-export\n" + qualified + "\n/\n";
+        }
+
+        // 兜底：尝试用另一种 TYPE 再查一次，提升命中率
+        String alt = "FUNCTION".equalsIgnoreCase(routineType) ? "PROCEDURE" : "FUNCTION";
+        String ddl2 = readRoutineSource(conn, schema, name, alt);
+        if (ddl2 != null && !ddl2.trim().isEmpty()) {
+            String qualified = qualifyRoutineCreateHeader(schema, ddl2);
+            return "-- mock-export\n" + qualified + "\n/\n";
+        }
+
+        // 最后兜底：不带 TYPE 条件查询（若 ALL_SOURCE 存在多条类型记录，按 LINE 拼接）
+        String ddl3 = readRoutineSourceNoType(conn, schema, name);
+        if (ddl3 != null && !ddl3.trim().isEmpty()) {
+            String qualified = qualifyRoutineCreateHeader(schema, ddl3);
+            return "-- mock-export\n" + qualified + "\n/\n";
+        }
+
+        return placeholder(schema, routineType, name, "ALL_SOURCE 未返回源码文本");
+    }
+
+    /**
+     * 为过程/函数 DDL 的 CREATE 头部补充 schema 前缀
+     * 说明：
+     * - 导出的 ALL_SOURCE 源码里常见为 CREATE [OR REPLACE] PROCEDURE "NAME" / FUNCTION "NAME"（不带 schema）；
+     * - 在导入时若不带 schema，可能落到默认 schema，导致对象归属不正确或执行失败；
+     * - 这里仅在“对象名不包含点号”时补全为 schema."NAME"；若源码已带 schema 则保持原样。
+     */
+    private String qualifyRoutineCreateHeader(String schema, String ddl) {
+        if (ddl == null) return null;
+        String s = ddl;
+        String sch = safe(schema).trim();
+        if (sch.isEmpty()) return s;
+
+        // 匹配 CREATE [OR REPLACE] (PROCEDURE|FUNCTION) <name>
+        Pattern p = Pattern.compile("(?is)\\bCREATE\\s+(OR\\s+REPLACE\\s+)?(PROCEDURE|FUNCTION)\\s+([^\\s(]+)");
+        Matcher m = p.matcher(s);
+        if (!m.find()) {
+            return s;
+        }
+        String nameToken = m.group(3);
+        if (nameToken == null) return s;
+        String nt = nameToken.trim();
+        // 已带 schema（含点号）则不处理
+        if (nt.indexOf('.') >= 0) {
+            return s;
+        }
+
+        String replace = "CREATE OR REPLACE " + m.group(2).toUpperCase(Locale.ROOT) + " " + sch + "." + nt;
+        return m.replaceFirst(replace);
+    }
+
+    /**
+     * 读取过程/函数源码（按 TYPE 精确匹配）
+     * 说明：返回拼接后的源码文本；未命中返回空字符串。
+     */
+    private String readRoutineSource(Connection conn, String schema, String name, String type) throws Exception {
         String sql = "SELECT TEXT FROM ALL_SOURCE WHERE OWNER = ? AND NAME = ? AND TYPE = ? ORDER BY LINE";
         StringBuilder sb = new StringBuilder();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, schema);
             ps.setString(2, name);
-            ps.setString(3, routineType);
+            ps.setString(3, type);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String line = rs.getString(1);
@@ -95,10 +191,27 @@ public class DmDdlResolver {
                 }
             }
         }
-        if (sb.length() == 0) {
-            return placeholder(schema, routineType, name, "ALL_SOURCE 未返回源码文本");
+        return sb.toString();
+    }
+
+    /**
+     * 读取过程/函数源码（不限制 TYPE）
+     * 说明：用于兼容 ALL_SOURCE.TYPE 归类异常的环境；可能返回混合类型文本，但比“完全取不到”更可用。
+     */
+    private String readRoutineSourceNoType(Connection conn, String schema, String name) throws Exception {
+        String sql = "SELECT TEXT FROM ALL_SOURCE WHERE OWNER = ? AND NAME = ? ORDER BY LINE";
+        StringBuilder sb = new StringBuilder();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, schema);
+            ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String line = rs.getString(1);
+                    if (line != null) sb.append(line);
+                }
+            }
         }
-        return "-- mock-export\n" + sb + "\n";
+        return sb.toString();
     }
 
     private String ddlForSequence(Connection conn, String schema, String seqName) throws Exception {
