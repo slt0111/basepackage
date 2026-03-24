@@ -67,5 +67,23 @@ public class DeployConfig {
      *      确保 Tomcat 使用符合要求的 JDK 版本启动。
      */
     private String tomcatJdkHome;
+
+    /**
+     * 数据初始化参数：文件主目录（Windows）
+     * 说明：用于替换初始化 SQL 模板中的 HZB_PATH 占位符。
+     */
+    private String hzbPath;
+
+    /**
+     * 数据初始化参数：文件主目录（Linux）
+     * 说明：用于替换初始化 SQL 模板中的 HZB_PATH_LINUX 占位符。
+     */
+    private String hzbPathLinux;
+
+    /**
+     * 数据初始化参数：文件上传根目录
+     * 说明：用于替换初始化 SQL 模板中的 UPLOAD_FILES_DIR 占位符。
+     */
+    private String uploadFilesDir;
 }
 

@@ -36,7 +36,11 @@ const deployConfig = {
     // TongWeb 部署目录合法性校验标记：仅当后端校验通过时置为 true，用于控制步骤跳转与部署脚本生成
     tongWebInstallValidated: false,
     // Tomcat 专用 JDK 安装目录（仅当当前环境 JDK < 17 且中间件为 Tomcat 且在 Windows 上部署时由用户填写）
-    tomcatJdkHome: ''
+    tomcatJdkHome: '',
+    // 数据初始化参数：用于替换 resources/data/init SQL 模板中的占位符
+    hzbPath: '',
+    hzbPathLinux: '',
+    uploadFilesDir: ''
 };
 
 // 页面加载完成后初始化
@@ -780,8 +784,14 @@ function showStep(step) {
         btnPrev.disabled = step <= 1;
     }
     if (btnNext) {
-        btnNext.style.display = '';
-        btnNext.disabled = step >= 5;
+        // 第五步为最后一步：隐藏“下一步”按钮，避免出现无效操作
+        if (step >= totalSteps) {
+            btnNext.style.display = 'none';
+            btnNext.disabled = true;
+        } else {
+            btnNext.style.display = '';
+            btnNext.disabled = false;
+        }
     }
     
     // 特殊处理：步骤3自动加载YML模板（参数配置已在步骤1保存）
@@ -1078,6 +1088,12 @@ function saveCurrentStepData() {
         case 3:
             const currentApp = document.getElementById('ymlAppSelect').value;
             deployConfig.ymlConfigs[currentApp] = document.getElementById('ymlContent').value;
+            break;
+        case 5:
+            // 数据初始化参数：在第5步实时回填到 deployConfig，确保可保存/可执行
+            deployConfig.hzbPath = ((document.getElementById('initHzbPath') || {}).value || '').trim();
+            deployConfig.hzbPathLinux = ((document.getElementById('initHzbPathLinux') || {}).value || '').trim();
+            deployConfig.uploadFilesDir = ((document.getElementById('initUploadFilesDir') || {}).value || '').trim();
             break;
     }
 }
@@ -2322,6 +2338,22 @@ function loadConfig() {
                     }
                     deployConfig.serverUrl = config.serverUrl;
                 }
+                // 加载数据初始化参数：与一键部署配置挂钩，便于后续直接生成初始化脚本
+                if (config.hzbPath != null) {
+                    deployConfig.hzbPath = config.hzbPath;
+                    const el = document.getElementById('initHzbPath');
+                    if (el) el.value = config.hzbPath;
+                }
+                if (config.hzbPathLinux != null) {
+                    deployConfig.hzbPathLinux = config.hzbPathLinux;
+                    const el = document.getElementById('initHzbPathLinux');
+                    if (el) el.value = config.hzbPathLinux;
+                }
+                if (config.uploadFilesDir != null) {
+                    deployConfig.uploadFilesDir = config.uploadFilesDir;
+                    const el = document.getElementById('initUploadFilesDir');
+                    if (el) el.value = config.uploadFilesDir;
+                }
                 
                 // 加载数据库配置（兼容旧配置：connectionString -> 解析 IP）
                 if (config.databases && config.databases.length > 0) {
@@ -2447,6 +2479,10 @@ function saveConfig() {
         middlewareType: deployConfig.middlewareType,
         tongWebDeployDir: deployConfig.installDir,
         serverUrl: deployConfig.serverUrl || '',
+        // 数据初始化参数：保存到配置模板，下一次加载可直接复用
+        hzbPath: deployConfig.hzbPath || '',
+        hzbPathLinux: deployConfig.hzbPathLinux || '',
+        uploadFilesDir: deployConfig.uploadFilesDir || '',
         databases: [
             { name: '统一支撑', ...deployConfig.databases.unified },
             { name: '干部应用', ...deployConfig.databases.cadre }
@@ -2866,48 +2902,163 @@ function updateServiceStatusBar(status) {
     `;
 }
 
-// 执行初始化脚本
-function executeScript() {
-    const app = document.getElementById('scriptDatabase').value;
-    const databaseConfig = deployConfig.databases[app];
-    
-    if (!databaseConfig || !databaseConfig.connectionString) {
-        Message.alert('请先配置数据库信息');
-        return;
+/**
+ * 采集数据初始化参数
+ * 说明：参数与一键部署配置挂钩，既用于生成 SQL，也会回写到 deployConfig 便于保存。
+ */
+function collectDataInitParams() {
+    const params = {
+        HZB_PATH: ((document.getElementById('initHzbPath') || {}).value || '').trim(),
+        HZB_PATH_LINUX: ((document.getElementById('initHzbPathLinux') || {}).value || '').trim(),
+        UPLOAD_FILES_DIR: ((document.getElementById('initUploadFilesDir') || {}).value || '').trim()
+    };
+    deployConfig.hzbPath = params.HZB_PATH;
+    deployConfig.hzbPathLinux = params.HZB_PATH_LINUX;
+    deployConfig.uploadFilesDir = params.UPLOAD_FILES_DIR;
+    return params;
+}
+
+/**
+ * 构造数据初始化请求体
+ */
+function buildDataInitRequestPayload() {
+    saveCurrentStepData();
+    const app = ((document.getElementById('scriptDatabase') || {}).value || 'unified').trim() || 'unified';
+    // 数据初始化应用清单：从 WAR 参数配置推导，供后端 app.sql 动态生成多应用语句
+    const warFiles = [];
+    if (deployConfig.wars && deployConfig.wars.unified && Array.isArray(deployConfig.wars.unified.builtinNames)) {
+        deployConfig.wars.unified.builtinNames.forEach(name => warFiles.push('tyzc/' + name));
     }
-
-    const scriptFilesInput = document.getElementById('scriptFiles').value;
-    const scriptFiles = scriptFilesInput ? 
-        scriptFilesInput.split(',').map(s => s.trim()).filter(s => s) : 
-        null;
-
-    const scriptLog = document.getElementById('scriptLog');
-    scriptLog.textContent = '开始执行初始化脚本...\n';
-
-    fetch('/api/deploy/script/execute', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
+    if (deployConfig.wars && deployConfig.wars.cadre && Array.isArray(deployConfig.wars.cadre.builtinNames)) {
+        deployConfig.wars.cadre.builtinNames.forEach(name => warFiles.push('gbgl/' + name));
+    }
+    return {
+        app: app,
+        deployConfig: {
+            installDir: deployConfig.installDir,
+            middlewareType: deployConfig.middlewareType,
+            serverUrl: deployConfig.serverUrl,
+            hzbPath: deployConfig.hzbPath,
+            hzbPathLinux: deployConfig.hzbPathLinux,
+            uploadFilesDir: deployConfig.uploadFilesDir,
+            warFiles: warFiles,
+            databases: [
+                { name: '统一支撑', ...deployConfig.databases.unified },
+                { name: '干部应用', ...deployConfig.databases.cadre }
+            ]
         },
-        body: JSON.stringify({
-            databaseConfig: databaseConfig,
-            scriptFiles: scriptFiles
+        initParams: collectDataInitParams()
+    };
+}
+
+/**
+ * 生成并预览初始化脚本清单
+ */
+function previewInitScripts() {
+    const payload = buildDataInitRequestPayload();
+    const scriptResult = document.getElementById('scriptResult');
+    const scriptPreview = document.getElementById('scriptPreview');
+    const scriptPreviewMeta = document.getElementById('scriptPreviewMeta');
+    if (scriptResult) scriptResult.textContent = '正在生成脚本清单...';
+
+    fetch('/api/deploy/data-init/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (!data || !data.success) {
+                const msg = (data && data.message) ? data.message : '生成脚本失败';
+                if (scriptResult) scriptResult.textContent = '生成失败：' + msg;
+                Message.error(msg);
+                return;
+            }
+            if (scriptPreview) {
+                scriptPreview.textContent = data.mergedScript || '';
+            }
+            if (scriptPreviewMeta) {
+                const scriptCount = Number(data.scriptCount || 0);
+                const mergedScript = String(data.mergedScript || '');
+                const sqlCount = mergedScript.split(';').map(s => s.trim()).filter(s => s).length;
+                scriptPreviewMeta.innerHTML = '<span>脚本文件数：' + scriptCount + '</span><span>SQL 语句数（按分号粗略统计）：' + sqlCount + '</span>';
+            }
+            if (scriptResult) scriptResult.textContent = '脚本清单已生成，可直接在线浏览或下载。';
+            Message.success('脚本清单生成完成');
         })
+        .catch(error => {
+            if (scriptResult) scriptResult.textContent = '请求失败：' + error.message;
+            Message.error('请求失败: ' + error.message);
+        });
+}
+
+/**
+ * 下载初始化脚本
+ * 说明：通过 Blob 方式下载后端返回的合并 SQL 文件。
+ */
+function downloadInitScripts() {
+    const payload = buildDataInitRequestPayload();
+    fetch('/api/deploy/data-init/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            scriptLog.textContent += '脚本执行完成\n';
-            Message.success('脚本执行完成');
-        } else {
-            scriptLog.textContent += '脚本执行失败: ' + data.message + '\n';
-            Message.error('脚本执行失败: ' + data.message);
-        }
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('下载失败，状态码: ' + response.status);
+            }
+            const cd = response.headers.get('Content-Disposition') || '';
+            const m = cd.match(/filename="([^"]+)"/);
+            const filename = m && m[1] ? m[1] : 'data-init.sql';
+            return response.blob().then(blob => ({ blob, filename }));
+        })
+        .then(({ blob, filename }) => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            Message.success('脚本下载完成');
+        })
+        .catch(error => {
+            Message.error('下载失败: ' + error.message);
+        });
+}
+
+/**
+ * 在线执行初始化脚本
+ */
+function executeInitScripts() {
+    const payload = buildDataInitRequestPayload();
+    const scriptResult = document.getElementById('scriptResult');
+    if (scriptResult) scriptResult.textContent = '正在在线执行初始化脚本...';
+
+    fetch('/api/deploy/data-init/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     })
-    .catch(error => {
-        scriptLog.textContent += '请求失败: ' + error.message + '\n';
-        Message.error('请求失败: ' + error.message);
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (!data || !data.success) {
+                const msg = (data && data.message) ? data.message : '执行失败';
+                if (scriptResult) scriptResult.textContent = '执行失败：' + msg;
+                Message.error(msg);
+                return;
+            }
+            if (scriptResult) {
+                scriptResult.textContent = '执行完成：SQL总数=' + (data.totalStatements || 0) +
+                    '，成功=' + (data.successCount || 0) + '，失败=' + (data.failCount || 0);
+            }
+            Message.success('数据初始化执行完成');
+        })
+        .catch(error => {
+            if (scriptResult) scriptResult.textContent = '请求失败：' + error.message;
+            Message.error('请求失败: ' + error.message);
+        });
 }
 
 // 添加日志

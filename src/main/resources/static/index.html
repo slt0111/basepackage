@@ -21,7 +21,8 @@
             height: 100vh;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
-            background: radial-gradient(circle at top left, #e0f2ff 0, #f5f7fa 40%, #eef2ff 100%);
+            /* 视觉降噪：背景改为更克制的浅灰蓝渐变，突出卡片信息层级 */
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -34,16 +35,15 @@
             max-width: 1280px;
             flex: 1;
             min-height: 0;
-            margin: 16px 24px;
-            padding: 20px 28px 20px;
+            margin: 10px 16px;
+            padding: 14px 18px 12px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            backdrop-filter: blur(18px);
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+            border: 1px solid #e2e8f0;
         }
 
         /* 顶部导航：固定高度，不参与滚动 */
@@ -52,7 +52,9 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eef2f7;
         }
 
         .home-nav-left {
@@ -65,16 +67,16 @@
             width: 10px;
             height: 10px;
             border-radius: 999px;
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
         .home-nav-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #4b5563;
+            letter-spacing: 0.03em;
+            text-transform: none;
+            color: #334155;
         }
 
         .home-nav-right {
@@ -84,12 +86,12 @@
         }
 
         .home-nav-pill {
-            padding: 4px 10px;
+            padding: 4px 9px;
             border-radius: 999px;
             font-size: 11px;
-            color: #0f172a;
-            background: rgba(226, 232, 240, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.6);
+            color: #334155;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
         }
 
         .home-nav-pill-muted {
@@ -101,26 +103,35 @@
         .home-main {
             flex: 1;
             min-height: 0;
-            overflow-y: auto;
-            margin-top: 4px;
+            /* 单屏展示：主区域禁止纵向滚动，改为紧凑布局确保一屏可见 */
+            overflow: hidden;
+            margin-top: 2px;
             margin-bottom: 0;
-            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+            /* 布局上移：顶部对齐，避免中间出现大面积留白 */
+            justify-content: flex-start;
+            gap: 8px;
         }
 
         .home-layout {
             display: grid;
-            grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
-            gap: 20px;
+            grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.85fr);
+            /* 统一栅格间距，减少“块与块挤压感” */
+            gap: 14px;
             align-items: flex-start;
-            margin-bottom: 16px;
+            margin-bottom: 6px;
         }
 
         .home-hero {
             padding-right: 10px;
+            /* 上半区文案统一左对齐与阅读宽度，避免视觉漂移 */
+            max-width: 760px;
         }
 
         .home-header {
-            margin-bottom: 14px;
+            margin-bottom: 10px;
+            text-align: left;
         }
 
         .home-label {
@@ -131,74 +142,81 @@
             border-radius: 999px;
             font-size: 12px;
             font-weight: 500;
-            color: #0f172a;
-            background: linear-gradient(90deg, rgba(59,130,246,0.08), rgba(129,140,248,0.08));
-            border: 1px solid rgba(148,163,184,0.35);
+            color: #1e293b;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
         }
 
         .home-title {
-            margin-top: 12px;
+            margin-top: 8px;
             margin-bottom: 8px;
+            /* 标题字号略增，形成更清晰的信息层级 */
             font-size: 28px;
             line-height: 1.25;
             font-weight: 650;
             letter-spacing: 0.02em;
             color: #020617;
+            text-align: left;
         }
 
         .home-subtitle {
             margin: 0;
-            max-width: 640px;
+            max-width: 700px;
+            /* 正文字号和行高上调，提升可读性 */
             font-size: 14px;
-            line-height: 1.7;
-            color: #4b5563;
+            line-height: 1.78;
+            text-indent: 0;
+            color: #475569;
+            text-align: left;
         }
 
         .home-chip-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 10px;
+            gap: 8px;
+            margin-top: 12px;
         }
 
         .home-chip {
-            padding: 3px 10px;
+            padding: 4px 10px;
             border-radius: 999px;
             font-size: 11px;
             font-weight: 500;
             color: #1d4ed8;
-            background: rgba(219, 234, 254, 0.9);
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
         }
 
         .home-chip-quiet {
             color: #0f766e;
-            background: rgba(204, 251, 241, 0.95);
+            background: #ecfeff;
+            border-color: #99f6e4;
         }
 
         .home-hero-actions {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin-top: 16px;
+            margin-top: 14px;
         }
 
         .home-hero-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 9px 18px;
+            padding: 8px 16px;
             border-radius: 999px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             text-decoration: none;
             cursor: pointer;
-            transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.1s ease;
+            transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
         }
 
         .home-hero-btn-primary {
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
             color: #ffffff;
-            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.38);
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.28);
         }
 
         .home-hero-btn-primary:hover {
@@ -207,46 +225,49 @@
         }
 
         .home-hero-btn-ghost {
-            background: rgba(248, 250, 252, 0.96);
+            background: #ffffff;
             color: #1f2937;
-            border: 1px solid rgba(148, 163, 184, 0.8);
+            border: 1px solid #cbd5e1;
         }
 
         .home-hero-btn-ghost:hover {
-            background: #e5e7eb;
+            background: #f1f5f9;
         }
 
         .home-hero-list {
-            margin: 14px 0 0;
-            padding-left: 18px;
+            margin: 12px 0 0;
+            /* 列表缩进与正文保持一致，视觉更整齐 */
+            padding-left: 22px;
             font-size: 12px;
             color: #4b5563;
-            line-height: 1.7;
+            line-height: 1.85;
+            text-align: left;
         }
 
         .home-hero-list li + li {
-            margin-top: 4px;
+            margin-top: 6px;
         }
 
         .home-aside {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .home-stat-card {
             padding: 12px 14px;
             border-radius: 14px;
-            background: radial-gradient(circle at top left, rgba(59,130,246,0.1), #ffffff);
-            border: 1px solid rgba(148, 163, 184, 0.5);
+            background: #ffffff;
+            border: 1px solid #dbe4ef;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
         }
 
         .home-stat-card + .home-stat-card {
-            background: radial-gradient(circle at top right, rgba(16,185,129,0.1), #ffffff);
+            background: #ffffff;
         }
 
         .home-stat-label {
-            font-size: 11px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: #6b7280;
@@ -257,14 +278,16 @@
             font-size: 14px;
             font-weight: 600;
             color: #111827;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            line-height: 1.45;
         }
 
         .home-stat-desc {
             margin: 0;
             font-size: 12px;
             color: #4b5563;
-            line-height: 1.6;
+            line-height: 1.75;
+            text-align: left;
         }
 
         .home-stat-list {
@@ -272,51 +295,55 @@
             padding-left: 16px;
             font-size: 12px;
             color: #4b5563;
-            line-height: 1.7;
+            line-height: 1.8;
+            text-align: left;
         }
 
         /* 下半部分卡片入口：一键部署 / 数据初始化 */
         .entry-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-            gap: 18px;
+            /* 单屏布局：三个核心功能入口同屏展示，避免形成第二行导致滚动 */
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
         }
 
-        a.entry-card {
+        a.entry-card,
+        .entry-card {
             position: relative;
             display: flex;
             flex-direction: column;
-            padding: 20px 20px 18px;
-            border-radius: 18px;
+            padding: 14px 14px 13px;
+            border-radius: 14px;
             text-decoration: none;
             color: inherit;
             background: #ffffff;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+            border: 1px solid #dbe4ef;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
             transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
             cursor: pointer;
         }
 
         .entry-card-primary {
-            background: radial-gradient(circle at top left, rgba(59,130,246,0.06), #ffffff 45%);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
         }
 
         .entry-card-secondary {
-            background: radial-gradient(circle at top right, rgba(45,212,191,0.06), #ffffff 45%);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fffd 100%);
         }
 
-        a.entry-card:hover {
+        a.entry-card:hover,
+        .entry-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 22px 55px rgba(15, 23, 42, 0.2);
-            border-color: rgba(59, 130, 246, 0.6);
-            background-color: #f9fafb;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.13);
+            border-color: #93c5fd;
+            background-color: #ffffff;
         }
 
         .entry-icon {
-            width: 40px;
-            height: 40px;
+            width: 34px;
+            height: 34px;
             border-radius: 14px;
-            margin-bottom: 14px;
+            margin-bottom: 9px;
             position: relative;
             overflow: hidden;
         }
@@ -389,29 +416,30 @@
         }
 
         .entry-title {
-            margin: 0 0 6px;
-            font-size: 18px;
+            margin: 0 0 4px;
+            font-size: 16px;
             font-weight: 600;
             color: #0f172a;
         }
 
         .entry-desc {
-            margin: 0 0 10px;
-            font-size: 13px;
-            line-height: 1.7;
-            color: #4b5563;
+            margin: 0 0 8px;
+            font-size: 12px;
+            line-height: 1.65;
+            color: #475569;
         }
 
         .entry-meta {
             margin: 0;
             padding-left: 18px;
-            font-size: 12px;
-            color: #6b7280;
+            font-size: 11px;
+            color: #64748b;
             list-style: none;
+            line-height: 1.65;
         }
 
         .entry-meta li {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             position: relative;
             padding-left: 12px;
         }
@@ -428,16 +456,16 @@
         }
 
         .entry-action {
-            margin-top: 16px;
+            margin-top: 10px;
             align-self: flex-start;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 999px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             letter-spacing: 0.02em;
             color: #1d4ed8;
-            background: rgba(219, 234, 254, 0.9);
-            border: 1px solid rgba(129, 140, 248, 0.5);
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
         }
 
         .entry-card-secondary .entry-action {
@@ -448,23 +476,30 @@
 
         /* 模拟数据管理卡片内的子入口区域：导出 / 导入 两个明确按钮 */
         .entry-sub-actions {
-            margin-top: 12px;
+            margin-top: 8px;
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
         }
 
         .entry-sub-link {
             display: inline-flex;
             align-items: center;
-            padding: 5px 12px;
+            padding: 4px 10px;
             border-radius: 999px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             color: #1d4ed8;
-            background: rgba(219, 234, 254, 0.96);
-            border: 1px solid rgba(129, 140, 248, 0.55);
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
             text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .entry-sub-link:hover {
+            background: #dbeafe;
+            border-color: #93c5fd;
         }
 
         .entry-sub-link-muted {
@@ -476,9 +511,9 @@
         /* 页脚：固定底部，不参与滚动 */
         .home-footer {
             flex-shrink: 0;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px dashed rgba(148, 163, 184, 0.65);
+            margin-top: 10px;
+            padding-top: 9px;
+            border-top: 1px dashed #cbd5e1;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -502,7 +537,7 @@
         }
 
         .home-footer-text {
-            font-size: 12px;
+            font-size: 11px;
             color: #6b7280;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -525,6 +560,13 @@
         }
 
         /* 响应式：在小屏幕下堆叠布局，避免挤在一行变成「文字墙」 */
+        @media (max-width: 1200px) {
+            /* 中等屏幕降级为 2 列，保证信息密度与可读性平衡 */
+            .entry-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
         @media (max-width: 900px) {
             .home-shell {
                 margin: 16px;
@@ -547,6 +589,9 @@
 
             .home-subtitle {
                 font-size: 13px;
+                line-height: 1.7;
+                /* 小屏降低首行缩进，避免换行过早 */
+                text-indent: 1em;
             }
 
             .home-footer {
@@ -556,6 +601,14 @@
 
             .home-footer-text {
                 white-space: normal;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            /* 无障碍优化：在用户偏好减少动画时关闭过渡动画 */
+            *, *::before, *::after {
+                transition: none !important;
+                animation: none !important;
             }
         }
     </style>
@@ -579,12 +632,12 @@
             <div class="home-layout">
                 <!-- 左侧产品说明与主操作区 -->
                 <section class="home-hero">
-                    <!-- 品牌标题区域：突出产品名称与定位 -->
+                    <!-- 品牌标题区域：同步当前能力，强调“部署 + 模拟数据 + 数据包下载” -->
                     <div class="home-header">
                         <div class="home-label">红云·工具集</div>
                         <h1 class="home-title">红云公务员干部产品工具</h1>
                         <p class="home-subtitle">
-                            面向实施与运维的一站式能力中心，用最少的操作完成从参数配置、WAR 部署到数据初始化的全流程。
+                            面向实施与运维的一站式工具台，覆盖一键部署、模拟数据导出/导入与数据包下载，帮助你更快完成环境搭建与联调准备。
                         </p>
                     </div>
 
@@ -592,9 +645,9 @@
                     <div class="home-chip-row">
                         <span class="home-chip">一键部署</span>
                         <span class="home-chip">多环境切换</span>
-                        <span class="home-chip">数据库初始化</span>
+                        <span class="home-chip">数据包下载</span>
                         <span class="home-chip home-chip-quiet">模拟数据管理</span>
-                        <span class="home-chip home-chip-quiet">运维提效</span>
+                        <span class="home-chip home-chip-quiet">导出 / 导入</span>
                     </div>
 
                     <!-- 主操作按钮：引导用户选择一键部署或只做数据初始化 -->
@@ -607,11 +660,11 @@
                         </a>
                     </div>
 
-                    <!-- 典型使用流程：用互联网产品的文案方式解释两大入口的区别 -->
+                    <!-- 典型使用流程：按当前功能重写，便于用户快速选择入口 -->
                     <ul class="home-hero-list">
-                        <li>首次落地或重装时，推荐选择 <strong>「立即一键部署」</strong>，按步骤完成安装目录、中间件、数据库、YML 与 WAR 配置。</li>
-                        <li>已有稳定环境，仅需重刷基础数据或回归测试时，选择 <strong>「仅执行数据初始化」</strong> 即可。</li>
-                        <li>所有动作都会记录详细日志，方便排查问题与复盘每一次部署。</li>
+                        <li>首次部署环境时，优先使用 <strong>「立即一键部署」</strong>，统一完成目录、端口、数据库与 WAR/YML 配置。</li>
+                        <li>联调或回归准备阶段，可进入 <strong>「模拟数据管理」</strong> 执行数据导出、导入或直接下载标准数据包。</li>
+                        <li>操作过程中均提供明确提示与下载结果反馈，降低人工切换与查找成本。</li>
                     </ul>
                 </section>
 
@@ -619,18 +672,18 @@
                 <aside class="home-aside" aria-label="环境状态与使用提示">
                     <div class="home-stat-card">
                         <div class="home-stat-label">推荐流程</div>
-                        <div class="home-stat-main">基础部署 &nbsp;→&nbsp; 数据初始化</div>
+                        <div class="home-stat-main">一键部署 &nbsp;→&nbsp; 模拟数据管理</div>
                         <p class="home-stat-desc">
-                            先完成应用与中间件的部署，再执行对应库的初始化脚本，避免出现连通性与权限问题。
+                            建议先完成部署校验，再进行模拟数据导出/导入或数据包下载，确保数据库连接和权限已就绪。
                         </p>
                     </div>
 
                     <div class="home-stat-card">
-                        <div class="home-stat-label">适用场景</div>
+                        <div class="home-stat-label">当前能力</div>
                         <ul class="home-stat-list">
-                            <li>新省市环境首次上线</li>
-                            <li>测试/联调环境重建</li>
-                            <li>演示环境一键恢复</li>
+                            <li>部署：向导式配置与发布</li>
+                            <li>模拟数据：导出、导入、数据包下载</li>
+                            <li>数据初始化：入口已保留（功能持续完善）</li>
                         </ul>
                     </div>
                 </aside>
@@ -672,6 +725,8 @@
                         <div class="entry-sub-actions">
                             <a class="entry-sub-link" href="export.html">模拟数据导出</a>
                             <a class="entry-sub-link entry-sub-link-muted" href="mock-import.html">模拟数据导入</a>
+                            <!-- 数据包下载按钮：点击先检查后端文件是否存在，存在则触发下载 -->
+                            <a class="entry-sub-link" href="#" onclick="return downloadMockPackage();">数据包下载</a>
                         </div>
                     </div>
                 </div>
@@ -725,6 +780,34 @@
                 Message.alert('模拟数据导入功能规划中，当前仅支持模拟数据导出');
             } else {
                 alert('模拟数据导入功能规划中，当前仅支持模拟数据导出');
+            }
+            return false;
+        }
+
+        // 数据包下载：先调用 exists 接口判断文件是否存在，存在再跳转下载接口。
+        async function downloadMockPackage() {
+            try {
+                var res = await fetch('/api/mock-package/exists', { method: 'GET' });
+                var data = await res.json();
+                if (!data || !data.exists) {
+                    var missingMsg = (data && data.message) ? data.message : '数据包不存在：resources/data/init.zip';
+                    if (typeof Message !== 'undefined') {
+                        Message.alert(missingMsg);
+                    } else {
+                        alert(missingMsg);
+                    }
+                    return false;
+                }
+
+                // 说明：直接跳转下载接口，浏览器会按 attachment 响应头下载文件。
+                window.location.href = '/api/mock-package/download';
+            } catch (e) {
+                var errMsg = '校验数据包失败，请稍后重试';
+                if (typeof Message !== 'undefined') {
+                    Message.alert(errMsg);
+                } else {
+                    alert(errMsg);
+                }
             }
             return false;
         }

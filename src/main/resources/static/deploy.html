@@ -22,47 +22,53 @@
             background: radial-gradient(circle at top left, #e0f2ff 0, #f5f7fa 40%, #eef2ff 100%);
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             color: #111827;
-            padding: 8px; /* 收紧整页外边距，给中间内容区释放更多垂直高度 */
+            /* 对齐模拟数据导入导出页：去掉整页外边距，提升横向利用率 */
+            padding: 0;
         }
         .deploy-shell {
             width: 100%;
-            max-width: 1400px;
+            /* 对齐模拟数据导入导出页：不限制最大宽度，容器占满全屏 */
+            max-width: none;
             flex: 1;
             min-height: 0;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            padding: 12px 20px 16px; /* 收紧容器内边距，进一步提升右侧内容区可视高度 */
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            backdrop-filter: blur(18px);
+            /* 与导入导出页统一：导航下直接内容区，移除外层大卡片空白 */
+            padding: 0;
+            background: #ffffff;
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+            backdrop-filter: none;
         }
         .deploy-nav {
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 10px; /* 减小顶部区域与内容区之间的间距，释放更多高度给内容区 */
-            padding-bottom: 8px; /* 收紧导航条底部内边距 */
-            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+            margin-bottom: 0;
+            padding: 0 16px;
+            min-height: 52px;
+            border-bottom: 1px solid #e2e8f0;
         }
         /* 左右分栏：参考程序安装向导，左侧为步骤导航区，右侧为内容区 */
         .deploy-body {
             display: flex;
             flex: 1;
-            min-height: 78vh; /* 略微再提高主体区域最小高度，让确认配置等步骤可展示更多内容 */
+            min-height: 0;
             overflow: hidden;
-            gap: 0;
+            gap: 10px;
+            /* 对齐导入导出页：主体内容统一内边距 */
+            padding: 10px;
             /* 调整主体区域占比：结合底部操作栏高度优化可视空间 */
         }
         /* 左侧：安装向导风格 - 浅色背景、清晰步骤列表、可点击 */
         .deploy-sidebar {
             flex-shrink: 0;
-            width: 260px;
+            width: 240px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -70,7 +76,7 @@
             /*background: linear-gradient(180deg, rgba(248, 250, 252, 1) 0%, rgba(241, 245, 249, 1) 55%, rgba(248, 250, 252, 1) 100%);*/
             /* 去掉整体框边线条：不再使用右侧分割线 */
             border-right: none;
-            padding: 12px 0 12px 0; /* 减少左侧栏上下留白，让整体高度更多分配给内容滚动区 */
+            padding: 8px 0 8px 0; /* 收紧左栏留白，避免视觉拥挤 */
         }
         /* 左侧导航增强：步骤区标题与进度（提升信息密度与引导感） */
         .deploy-sidebar .steps-header {
@@ -322,7 +328,8 @@
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 8px 24px 4px; /* 进一步收紧上下内边距，将更多垂直空间留给实际内容展示 */
+            /* 与导入导出页统一：左右留白控制在 10-12px */
+            padding: 8px 12px 4px;
             max-width: 100%;
         }
         .deploy-nav-left {
@@ -1241,7 +1248,8 @@
             align-items: center;
             justify-content: flex-end; /* 按钮靠右显示，符合操作区习惯 */
             gap: 12px;
-            padding: 6px 24px 4px; /* 再次收紧上下 / 左右内边距，使操作栏更贴近底部并释放更多高度给右侧内容 */
+            /* 对齐导入导出页的横向节奏，减少底部左右空白 */
+            padding: 6px 12px 4px;
             /*border-top: 1px solid #e2e8f0;*/
             background: #fff;
         }
@@ -1267,8 +1275,179 @@
             background: #f8fafc;
             border: 1px solid #e2e8f0;
         }
-        body.deploy-page .script-log {
+        /* 数据初始化区域：去掉最外层卡片，直接与页面主体对齐 */
+        body.deploy-page #step5 {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            /* 高度自适应：直接占满右侧内容区，避免底部出现空白带 */
+            height: 95%;
+        }
+        body.deploy-page #step5 .script-section {
+            /* 取消最外层卡片视觉，避免层层嵌套 */
+            flex: 1;
+            min-height: 0;
+            height: 100%;
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+        /* 数据初始化区域：参考模拟数据导入导出布局密度 */
+        body.deploy-page .init-layout {
+            display: grid;
+            grid-template-columns: 340px minmax(0, 1fr);
+            gap: 10px;
+            min-height: 0;
+            height: 100%;
+        }
+        body.deploy-page .init-side,
+        body.deploy-page .init-main {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #ffffff;
+            padding: 10px;
+            min-height: 0;
+        }
+        body.deploy-page .init-side {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        body.deploy-page .init-main {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        body.deploy-page .init-panel-title {
+            margin: 0 0 6px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        body.deploy-page .init-panel-muted {
+            margin: 0 0 8px;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.45;
+        }
+        /* 第5步输入框样式：对齐导入导出页的紧凑风格 */
+        body.deploy-page .init-side .form-group {
+            margin: 6px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            /* 覆盖全局 form-group 居中样式，确保字段名和输入项靠左 */
+            align-items: stretch;
+        }
+        body.deploy-page .init-side .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            width: auto;
+            min-width: 0;
+            text-align: left;
+            align-self: flex-start;
+        }
+        body.deploy-page .init-side input[type="text"],
+        body.deploy-page .init-side select {
+            width: 100%;
+            padding: 10px 14px;
             border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            font-size: 14px;
+            color: #0f172a;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        body.deploy-page .init-side input[type="text"]:focus,
+        body.deploy-page .init-side select:focus {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+        /* 数据初始化按钮组：统一为三等宽，避免“拥挤和错位” */
+        body.deploy-page .init-action-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        body.deploy-page .init-action-row .btn-primary,
+        body.deploy-page .init-action-row .btn-secondary {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+            padding: 10px 12px;
+            font-size: 14px;
+            border-radius: 999px;
+        }
+        body.deploy-page .init-main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        body.deploy-page .init-main-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        /* 数据初始化脚本预览：展示模板替换后的最终 SQL，支持在线浏览与复制下载 */
+        body.deploy-page .script-preview {
+            margin-top: 0;
+            flex: 1;
+            min-height: 420px;
+            max-height: none;
+            overflow: auto;
+            border-radius: 12px;
+            border: 1px solid #1e293b;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            line-height: 1.45;
+            white-space: pre;
+        }
+        /* 数据初始化统计信息：展示脚本文件数和 SQL 条数，便于执行前确认 */
+        body.deploy-page .script-preview-meta {
+            margin-top: 0;
+            font-size: 11px;
+            color: #475569;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        /* 执行结果摘要：替代日志区域，仅展示最终结果 */
+        body.deploy-page .script-result {
+            border-radius: 8px;
+            margin-top: 4px;
+            min-height: 48px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 8px;
+            white-space: pre-wrap;
+            color: #334155;
+            font-size: 13px;
+            line-height: 1.45;
+            text-align: left;
+        }
+        @media (max-width: 1280px) {
+            body.deploy-page .init-layout {
+                grid-template-columns: 320px minmax(0, 1fr);
+            }
+        }
+        @media (max-width: 980px) {
+            body.deploy-page #step5 {
+                height: auto;
+            }
+            body.deploy-page .init-layout {
+                grid-template-columns: 1fr;
+                min-height: 0;
+                height: auto;
+            }
         }
 
         /* 帮助手册弹窗：与部署脚本弹窗风格保持一致，内嵌独立文档页面 */
@@ -1778,19 +1957,44 @@
             <h2>第五步：数据初始化</h2>
             
             <div class="script-section">
-                <div class="form-group">
-                    <label>选择数据库：</label>
-                    <select id="scriptDatabase">
-                        <option value="unified">统一支撑</option>
-                        <option value="cadre">干部应用</option>
-                    </select>
+                <div class="init-layout">
+                    <div class="init-side">
+                        <h3 class="init-panel-title">初始化参数</h3>
+                        <p class="init-panel-muted">填写替换参数并生成脚本，脚本内容在右侧实时预览。</p>
+                        <div class="form-group">
+                            <label>选择数据库：</label>
+                            <select id="scriptDatabase">
+                                <option value="unified">统一支撑</option>
+                                <option value="cadre">干部应用</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>文件主目录（HZB_PATH）：</label>
+                            <input type="text" id="initHzbPath" placeholder="例如：D:\hzb_data">
+                        </div>
+                        <div class="form-group">
+                            <label>文件主目录（HZB_PATH_LINUX）：</label>
+                            <input type="text" id="initHzbPathLinux" placeholder="例如：/opt/hzb/data">
+                        </div>
+                        <div class="form-group">
+                            <label>文件上传根目录（UPLOAD_FILES_DIR）：</label>
+                            <input type="text" id="initUploadFilesDir" placeholder="例如：/data/upload/files">
+                        </div>
+                        <div class="init-action-row">
+                            <button type="button" class="btn-secondary" onclick="previewInitScripts()">生成脚本清单</button>
+                            <button type="button" class="btn-secondary" onclick="downloadInitScripts()">下载脚本</button>
+                            <button type="button" class="btn-primary" onclick="executeInitScripts()">在线执行初始化</button>
+                        </div>
+                        <div id="scriptResult" class="script-result">执行结果将在这里显示。</div>
+                    </div>
+                    <div class="init-main">
+                        <div class="init-main-header">
+                            <h3 class="init-main-title">初始化脚本预览（替换后）</h3>
+                            <div id="scriptPreviewMeta" class="script-preview-meta"></div>
+                        </div>
+                        <div id="scriptPreview" class="script-preview">请先点击“生成脚本清单”查看替换后的最终 SQL。</div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>脚本文件（可选，留空执行所有）：</label>
-                    <input type="text" id="scriptFiles" placeholder="多个文件用逗号分隔，例如: init.sql,data.sql">
-                </div>
-                <button type="button" class="btn-primary" onclick="executeScript()">执行脚本</button>
-                <div id="scriptLog" class="script-log"></div>
             </div>
 
             <div class="wizard-buttons">
