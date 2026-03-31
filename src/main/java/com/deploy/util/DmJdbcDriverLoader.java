@@ -8,9 +8,11 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -71,6 +73,9 @@ public class DmJdbcDriverLoader {
 
         List<Path> jars = findLibJars();
         if (jars.isEmpty()) {
+            // 说明：jar 运行时“lib 目录存在但仍扫描不到”通常是目录基准不一致（jar 所在目录 vs 当前工作目录）。
+            // 这里输出候选路径与应用位置，便于现场直接定位。
+            logLibScanEvidence(Collections.emptyList());
             throw lastDriverNotFound();
         }
 
@@ -86,6 +91,8 @@ public class DmJdbcDriverLoader {
             DeployLogWebSocket.sendLog("[mock-export] 已加载达梦驱动 jar（lib 目录）数量=" + jars.size());
 
             if (!tryLoadAnyDriver(sharedLoader)) {
+                // 说明：找到了 jar 但仍无法加载类，通常是 jar 非达梦驱动或版本不匹配；输出 jar 列表便于核对。
+                logLibScanEvidence(jars);
                 throw lastDriverNotFound();
             }
             // 说明：URLClassLoader 加载的 Driver 默认不一定会被 DriverManager 自动发现/注册，这里显式注册。
@@ -153,8 +160,10 @@ public class DmJdbcDriverLoader {
     }
 
     private static ClassNotFoundException lastDriverNotFound() {
+        // 说明：把扫描证据拼进异常消息，确保即使看不到 WebSocket 日志，也能从接口返回直接定位路径问题。
+        String diag = buildLibScanDiagnostics();
         return new ClassNotFoundException("无法加载达梦数据库驱动，请确保达梦 JDBC 驱动 jar 在 lib/ 目录下或已打入 classpath。尝试的驱动类: "
-                + String.join(", ", DM_DRIVER_CLASSES));
+                + String.join(", ", DM_DRIVER_CLASSES) + (diag.isEmpty() ? "" : "。诊断信息: " + diag));
     }
 
     /**
@@ -181,11 +190,27 @@ public class DmJdbcDriverLoader {
     private static List<Path> candidateLibDirs() {
         List<Path> dirs = new ArrayList<>();
 
+        // 0) 显式指定：优先使用系统属性/环境变量指定的 lib 目录（用于 jar 部署目录结构不固定的场景）
+        // 支持：
+        // - JVM 参数：-Ddm.jdbc.libDir=/opt/app/lib
+        // - 环境变量：DM_JDBC_LIB_DIR=/opt/app/lib
+        Path explicit = explicitLibDir();
+        if (explicit != null) {
+            dirs.add(explicit);
+        }
+
         // 1) JAR 部署：应用目录同级 lib/
         ApplicationHome home = new ApplicationHome(DmJdbcDriverLoader.class);
         File appDir = home.getDir();
         if (appDir != null) {
             dirs.add(new File(appDir, "lib").toPath());
+
+            // 说明：部分部署会将 jar 放在子目录（如 target/ 或 app/），但 lib/ 放在上一级目录。
+            // 例如：/opt/app/bin/app.jar + /opt/app/lib/*.jar
+            File parent = appDir.getParentFile();
+            if (parent != null) {
+                dirs.add(new File(parent, "lib").toPath());
+            }
 
             // 2) IDE 场景：target/classes -> 回溯项目根目录的 lib/
             String path = appDir.getAbsolutePath();
@@ -202,6 +227,85 @@ public class DmJdbcDriverLoader {
         dirs.add(new File("lib").toPath());
 
         return dirs;
+    }
+
+    /**
+     * 读取显式指定的 lib 目录
+     */
+    private static Path explicitLibDir() {
+        try {
+            String p = System.getProperty("dm.jdbc.libDir");
+            if (p == null || p.trim().isEmpty()) {
+                p = System.getenv("DM_JDBC_LIB_DIR");
+            }
+            if (p == null || p.trim().isEmpty()) {
+                return null;
+            }
+            return Paths.get(p.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * 构造 lib 扫描诊断信息（用于异常消息）
+     */
+    private static String buildLibScanDiagnostics() {
+        try {
+            ApplicationHome home = new ApplicationHome(DmJdbcDriverLoader.class);
+            File dir = home.getDir();
+            File src = home.getSource();
+            StringBuilder sb = new StringBuilder();
+            sb.append("home.dir=").append(dir != null ? dir.getAbsolutePath() : "null");
+            sb.append(", home.source=").append(src != null ? src.getAbsolutePath() : "null");
+            sb.append(", user.dir=").append(System.getProperty("user.dir"));
+
+            Path explicit = explicitLibDir();
+            if (explicit != null) {
+                sb.append(", explicitLibDir=").append(explicit.toAbsolutePath());
+            }
+
+            List<Path> candidates = candidateLibDirs();
+            sb.append(", candidateLibDirs=[");
+            for (int i = 0; i < candidates.size(); i++) {
+                Path c = candidates.get(i);
+                if (i > 0) sb.append(" | ");
+                sb.append(c != null ? c.toAbsolutePath() : "null");
+                sb.append(" exists=").append(c != null && Files.exists(c));
+                sb.append(" isDir=").append(c != null && Files.isDirectory(c));
+            }
+            sb.append("]");
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * 输出 lib 扫描证据（候选目录/工作目录/jar 所在目录/找到的 jar 列表）
+     * 说明：用于现场快速确认 “lib 实际放在哪” 与 “程序在按什么路径找”。
+     */
+    private static void logLibScanEvidence(List<Path> jars) {
+        try {
+            ApplicationHome home = new ApplicationHome(DmJdbcDriverLoader.class);
+            File dir = home.getDir();
+            File src = home.getSource();
+            DeployLogWebSocket.sendLog("[mock-export] 达梦驱动加载诊断: home.dir=" + (dir != null ? dir.getAbsolutePath() : "null")
+                    + " home.source=" + (src != null ? src.getAbsolutePath() : "null")
+                    + " user.dir=" + System.getProperty("user.dir"));
+            List<Path> candidates = candidateLibDirs();
+            for (Path c : candidates) {
+                DeployLogWebSocket.sendLog("[mock-export] 达梦驱动加载诊断: candidateLibDir=" + (c != null ? c.toAbsolutePath() : "null")
+                        + " exists=" + (c != null && Files.exists(c))
+                        + " isDir=" + (c != null && Files.isDirectory(c)));
+            }
+            if (jars != null && !jars.isEmpty()) {
+                for (Path p : jars) {
+                    DeployLogWebSocket.sendLog("[mock-export] 达梦驱动加载诊断: foundJar=" + p.toAbsolutePath());
+                }
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     /**

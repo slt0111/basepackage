@@ -8,6 +8,9 @@ import com.deploy.util.ProcessUtil;
 import com.deploy.util.WarConfigUtil;
 import com.deploy.util.WarPathUtil;
 import com.deploy.websocket.DeployLogWebSocket;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -305,18 +308,16 @@ public class TomcatDeployService {
         String tomcatResource = null;
         
         for (String name : possibleNames) {
-            try {
-                // 尝试读取资源文件
-                FileUtil.readResourceContent("tomcat/" + name);
+            // 说明：Tomcat 压缩包属于二进制资源（zip/tar.gz），这里只做存在性探测，不做文本读取，避免误判为“不存在”。
+            if (FileUtil.resourceExists("tomcat/" + name)) {
                 tomcatResource = "tomcat/" + name;
                 break;
-            } catch (IOException e) {
-                // 继续查找下一个
             }
         }
 
         if (tomcatResource == null) {
-            throw new IOException("未找到Tomcat压缩包资源文件");
+            // 说明：补充诊断信息，便于在 jar 部署环境直接定位 classpath 是否包含 tomcat.zip
+            throw new IOException("未找到Tomcat压缩包资源文件" + buildTomcatResourceDiagnostics(possibleNames));
         }
 
         // 解压Tomcat压缩包
@@ -339,6 +340,57 @@ public class TomcatDeployService {
         }
         
         return extractDir;
+    }
+
+    /**
+     * 构造 Tomcat 资源探测诊断信息
+     * 说明：避免现场“jar 里明明有资源但程序探测不到”时无从下手。
+     */
+    private String buildTomcatResourceDiagnostics(String[] possibleNames) {
+        StringBuilder sb = new StringBuilder();
+        try {
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            sb.append("。诊断信息: ");
+            sb.append("thread=").append(Thread.currentThread().getName());
+            sb.append(", cl=").append(cl != null ? cl.getClass().getName() : "null");
+            sb.append(", user.dir=").append(System.getProperty("user.dir"));
+
+            // 1) 对每个候选名称做 resourceExists 探测结果输出
+            if (possibleNames != null && possibleNames.length > 0) {
+                sb.append(", resourceExists=[");
+                for (int i = 0; i < possibleNames.length; i++) {
+                    String name = possibleNames[i];
+                    if (i > 0) sb.append(" | ");
+                    sb.append("tomcat/").append(name).append("=").append(FileUtil.resourceExists("tomcat/" + name));
+                }
+                sb.append("]");
+            }
+
+            // 2) 资源扫描：列出 classpath*:tomcat/* 实际能扫描到的资源 URL（只取前 10 个避免刷屏）
+            ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(cl);
+            Resource[] rs = resolver.getResources("classpath*:tomcat/*");
+            sb.append(", scanCount=").append(rs != null ? rs.length : 0);
+            if (rs != null && rs.length > 0) {
+                sb.append(", scan=[");
+                int limit = Math.min(10, rs.length);
+                for (int i = 0; i < limit; i++) {
+                    Resource r = rs[i];
+                    if (i > 0) sb.append(" | ");
+                    try {
+                        sb.append(r.getURL().toString());
+                    } catch (Exception e) {
+                        sb.append(String.valueOf(r));
+                    }
+                }
+                if (rs.length > limit) {
+                    sb.append(" | ...more");
+                }
+                sb.append("]");
+            }
+        } catch (Exception ignored) {
+            // ignored
+        }
+        return sb.toString();
     }
 
     /**

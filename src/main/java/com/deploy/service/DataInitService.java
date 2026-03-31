@@ -15,6 +15,10 @@ import java.sql.Statement;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
+
 /**
  * 数据初始化服务
  * 说明：读取 resources/data/init 下的 SQL 模板，按参数替换后生成可预览/下载/执行的脚本清单。
@@ -141,24 +145,30 @@ public class DataInitService {
      */
     private List<Path> listTemplateSqlFiles(String app) throws IOException {
         Path dir = resolveTemplateDir(app);
-        if (dir == null || !Files.isDirectory(dir)) {
-            throw new IllegalStateException("未找到初始化 SQL 目录：请检查 data/sql/(tyzc|gbgl) 或旧目录 data/init");
+        if (dir != null && Files.isDirectory(dir)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.sql")) {
+                List<Path> files = new ArrayList<>();
+                for (Path p : stream) {
+                    if (Files.isRegularFile(p)) {
+                        files.add(p);
+                    }
+                }
+                if (files.isEmpty()) {
+                    throw new IllegalStateException("初始化 SQL 目录下未找到 .sql 文件: " + dir.toAbsolutePath());
+                }
+                return files.stream()
+                        .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                        .collect(Collectors.toList());
+            }
         }
 
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.sql")) {
-            List<Path> files = new ArrayList<>();
-            for (Path p : stream) {
-                if (Files.isRegularFile(p)) {
-                    files.add(p);
-                }
-            }
-            if (files.isEmpty()) {
-                throw new IllegalStateException("初始化 SQL 目录下未找到 .sql 文件: " + dir.toAbsolutePath());
-            }
-            return files.stream()
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
-                    .collect(Collectors.toList());
+        // 说明：jar 启动时 SQL 模板在 classpath（jar 内部），无法用 Files.isDirectory(Paths.get(...)) 判断。
+        // 这里兜底从 classpath 读取并解压到临时目录，保证后续仍可按 Path 列表读取内容。
+        List<Path> classpathFiles = extractClasspathSqlFilesToTemp(app);
+        if (classpathFiles.isEmpty()) {
+            throw new IllegalStateException("未找到初始化 SQL 目录：请检查 data/sql/(tyzc|gbgl) 或旧目录 data/init");
         }
+        return classpathFiles;
     }
 
     /**
@@ -186,6 +196,57 @@ public class DataInitService {
             return fallback;
         }
         return null;
+    }
+
+    /**
+     * 从 classpath（含 jar 内部资源）提取 SQL 模板到临时目录，并返回可读取的 Path 列表。
+     * 说明：避免直接对 jar 内 Path 进行 DirectoryStream 枚举导致的兼容性问题。
+     */
+    private List<Path> extractClasspathSqlFilesToTemp(String app) throws IOException {
+        String appDir = resolveAppDirName(app);
+        // 说明：优先新目录 data/sql/{appDir}；其次尝试 data/sql；最后兼容旧目录 data/init。
+        List<String> candidateDirs = Arrays.asList(
+                "data/sql/" + appDir,
+                "data/sql",
+                "data/init"
+        );
+
+        // 说明：Spring Boot 可执行 jar（BOOT-INF/classes）属于“嵌套 jar”加载方式，不能依赖 NIO jar 文件系统枚举目录。
+        // 这里改为用 Spring 的 classpath* 资源扫描（ResourcePatternResolver）找到 *.sql，再拷贝到临时目录供后续按 Path 读取。
+        ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(Thread.currentThread().getContextClassLoader());
+        for (String dir : candidateDirs) {
+            try {
+                Resource[] resources = resolver.getResources("classpath*:" + dir + "/*.sql");
+                if (resources == null || resources.length == 0) {
+                    continue;
+                }
+
+                Path tempRoot = Files.createTempDirectory("data-init-sql-");
+                tempRoot.toFile().deleteOnExit();
+                List<Path> extracted = new ArrayList<>();
+                for (Resource r : resources) {
+                    if (r == null || !r.exists()) {
+                        continue;
+                    }
+                    String name = r.getFilename();
+                    if (name == null || name.trim().isEmpty() || !name.toLowerCase(Locale.ROOT).endsWith(".sql")) {
+                        continue;
+                    }
+                    Path dst = tempRoot.resolve(name);
+                    Files.copy(r.getInputStream(), dst, StandardCopyOption.REPLACE_EXISTING);
+                    dst.toFile().deleteOnExit();
+                    extracted.add(dst);
+                }
+                if (!extracted.isEmpty()) {
+                    return extracted.stream()
+                            .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                            .collect(Collectors.toList());
+                }
+            } catch (Exception ignored) {
+                // 说明：逐个候选目录尝试；单个目录扫描失败不影响后续兜底路径。
+            }
+        }
+        return Collections.emptyList();
     }
 
     /**

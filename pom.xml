@@ -14,7 +14,7 @@
 
     <groupId>com.deploy</groupId>
     <artifactId>deploy-tool</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <name>WAR Deploy Tool</name>
     <description>WAR包服务部署启动工具</description>
 
@@ -85,6 +85,21 @@
             <version>8.1.1.49</version>
         </dependency>
 
+        <!--
+            达梦 JDBC 驱动（本项目随包发布）
+            说明：
+            - 你当前 jar 里只有 DmDialect-for-hibernate5.3，但缺少真正的 JDBC 驱动 jar，因此会出现 Class.forName(dm.jdbc.driver.*) 失败。
+            - 这里用 system scope 直接引用仓库内的 lib/DmJdbcDriver18.jar，并让 Spring Boot repackage 把它打进 BOOT-INF/lib，
+              这样 jar 启动时驱动会天然在 classpath 中，无需依赖外置 lib/ 目录。
+         -->
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
+            <version>18</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/DmJdbcDriver18.jar</systemPath>
+        </dependency>
+
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -106,6 +121,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <!-- 说明：将 system scope 的本地达梦 JDBC 驱动一并打入 BOOT-INF/lib，确保 jar 启动可加载驱动 -->
+                    <includeSystemScope>true</includeSystemScope>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

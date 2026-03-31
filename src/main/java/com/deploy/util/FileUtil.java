@@ -85,6 +85,57 @@ public class FileUtil {
     }
 
     /**
+     * 判断 classpath 资源是否存在
+     * 说明：用于 zip/jar 等二进制资源的“存在性探测”，避免用 readResourceContent() 以 UTF-8 方式读取二进制导致误判。
+     *
+     * @param resourcePath 资源路径（相对于 classpath）
+     * @return true 表示资源可读取，false 表示不存在或不可访问
+     */
+    public static boolean resourceExists(String resourcePath) {
+        try {
+            // 说明：在 Spring Boot 可执行 jar + 异步线程场景下，默认 ClassLoader 可能与主线程不同；
+            // 这里显式使用当前线程 ContextClassLoader，避免资源存在但探测不到。
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            String p = resourcePath != null ? resourcePath.trim() : "";
+            if (p.startsWith("/")) {
+                p = p.substring(1);
+            }
+
+            // 先按标准路径探测
+            if (canOpenClasspathResource(p, cl)) {
+                return true;
+            }
+            // 兼容：某些环境下资源路径可能被传入为 /xxx，或需要回退到默认 ClassLoader
+            if (canOpenClasspathResource(resourcePath, null)) {
+                return true;
+            }
+            return false;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * 尝试打开 classpath 资源输入流以确认可读性
+     */
+    private static boolean canOpenClasspathResource(String resourcePath, ClassLoader cl) {
+        try {
+            if (resourcePath == null || resourcePath.trim().isEmpty()) {
+                return false;
+            }
+            ClassPathResource resource = (cl != null) ? new ClassPathResource(resourcePath, cl) : new ClassPathResource(resourcePath);
+            if (!resource.exists()) {
+                return false;
+            }
+            try (InputStream ignored = resource.getInputStream()) {
+                return true;
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
      * 写入文件内容
      * @param filePath 文件路径
      * @param content 文件内容
