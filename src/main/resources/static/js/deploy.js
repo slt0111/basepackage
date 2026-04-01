@@ -2,7 +2,8 @@
 let ws = null;
 let currentStep = 1;
 // 部署向导总步骤：基础配置 + 数据库配置已合并为「参数配置」
-const totalSteps = 5;
+// 说明：数据初始化步骤已从向导中隐藏，当前共 4 步（参数配置 → WAR → YML → 确认部署）
+const totalSteps = 4;
 
 // 配置数据存储：统一管理各步骤表单与派生数据，便于跨步骤复用
 const deployConfig = {
@@ -43,6 +44,165 @@ const deployConfig = {
     uploadFilesDir: ''
 };
 
+/**
+ * YML 编辑器：CodeMirror（YAML 语法高亮 + 可编辑）
+ * 说明：首次进入第三步时由 ensureYmlCodeMirror 从 #ymlContent 创建实例；未加载到 CodeMirror 时退回原生 textarea。
+ */
+var ymlCodeMirrorInstance = null;
+/** 连接池参数键：所在行固定与占位符行使用同一底色高亮 */
+var YML_POOL_CONFIG_KEYS = ['initial-size', 'max-active', 'max-wait', 'min-idle'];
+var ymlHighlightDebounceTimer = null;
+
+function ensureYmlCodeMirror() {
+    if (ymlCodeMirrorInstance) {
+        return ymlCodeMirrorInstance;
+    }
+    if (typeof CodeMirror === 'undefined') {
+        return null;
+    }
+    var ta = document.getElementById('ymlContent');
+    if (!ta) {
+        return null;
+    }
+    // 说明：使用自定义主题 deploy-yml（在 deploy.html 中定义），提高 YAML 关键字/键值/字符串对比度
+    ymlCodeMirrorInstance = CodeMirror.fromTextArea(ta, {
+        mode: 'yaml',
+        lineNumbers: true,
+        lineWrapping: true,
+        indentUnit: 2,
+        tabSize: 2,
+        theme: 'deploy-yml',
+        viewportMargin: Infinity
+    });
+    var appSelect = document.getElementById('ymlAppSelect');
+    ymlCodeMirrorInstance.on('change', function () {
+        var app = appSelect ? appSelect.value : 'unified';
+        deployConfig.ymlConfigs[app] = ymlCodeMirrorInstance.getValue();
+        // 说明：连接池四项随编辑实时重算行号；占位符行仍用 ymlHighlightLines，与 setYmlEditorValue 时合并
+        if (ymlHighlightDebounceTimer) {
+            clearTimeout(ymlHighlightDebounceTimer);
+        }
+        ymlHighlightDebounceTimer = setTimeout(function () {
+            applyYmlPlaceholderLineHighlights(ymlCodeMirrorInstance, app);
+        }, 80);
+    });
+    return ymlCodeMirrorInstance;
+}
+
+/** 占位符替换行背景类名（与 deploy.html 中样式对应，与旧版「yml-line-modified」语义一致） */
+var YML_PLACEHOLDER_LINE_CLASS = 'yml-placeholder-line';
+
+/**
+ * 从当前 YML 文本中解析连接池四项（initial-size / max-active / max-wait / min-idle）所在行，返回 1 基行号列表
+ */
+function findPoolConfigLineNumbers(rawContent) {
+    if (!rawContent || typeof rawContent !== 'string') {
+        return [];
+    }
+    var lines = rawContent.split(/\r?\n/);
+    var out = [];
+    lines.forEach(function (line, index) {
+        for (var i = 0; i < YML_POOL_CONFIG_KEYS.length; i++) {
+            var key = YML_POOL_CONFIG_KEYS[i];
+            var re = new RegExp('(^|[\\s\\-])' + key.replace(/-/g, '\\-') + '\\s*:', 'i');
+            if (re.test(line)) {
+                out.push(index + 1);
+                return;
+            }
+        }
+    });
+    return out;
+}
+
+/**
+ * 清除 CodeMirror 中所有「占位符替换行」底色标记
+ */
+function clearYmlPlaceholderLineHighlights(cm) {
+    if (!cm) {
+        return;
+    }
+    var n = cm.lineCount();
+    for (var i = 0; i < n; i++) {
+        cm.removeLineClass(i, 'background', YML_PLACEHOLDER_LINE_CLASS);
+    }
+}
+
+/**
+ * 合并「占位符模板行」与「连接池四项」行号，为对应行添加浅黄底色
+ */
+function applyYmlPlaceholderLineHighlights(cm, app) {
+    if (!cm || !app) {
+        return;
+    }
+    clearYmlPlaceholderLineHighlights(cm);
+    var fromTemplate = (deployConfig.ymlHighlightLines && deployConfig.ymlHighlightLines[app]) || [];
+    var fromPool = findPoolConfigLineNumbers(cm.getValue());
+    var merged = {};
+    var i;
+    for (i = 0; i < fromTemplate.length; i++) {
+        merged[fromTemplate[i]] = true;
+    }
+    for (i = 0; i < fromPool.length; i++) {
+        merged[fromPool[i]] = true;
+    }
+    var lineNos = Object.keys(merged).map(Number).filter(function (n) {
+        return typeof n === 'number' && n >= 1;
+    }).sort(function (a, b) {
+        return a - b;
+    });
+    if (!lineNos.length) {
+        return;
+    }
+    var max = cm.lineCount();
+    for (i = 0; i < lineNos.length; i++) {
+        var lineNo = lineNos[i];
+        var idx = lineNo - 1;
+        if (idx >= max) {
+            continue;
+        }
+        cm.addLineClass(idx, 'background', YML_PLACEHOLDER_LINE_CLASS);
+    }
+}
+
+/** 读取当前编辑器中的 YML 全文（优先 CodeMirror，否则 textarea） */
+function getYmlEditorValue() {
+    if (ymlCodeMirrorInstance) {
+        return ymlCodeMirrorInstance.getValue();
+    }
+    var ta = document.getElementById('ymlContent');
+    return ta ? ta.value : '';
+}
+
+/** 写入编辑器内容并同步到 deployConfig 当前应用 */
+function setYmlEditorValue(text) {
+    var v = text == null ? '' : String(text);
+    var ta = document.getElementById('ymlContent');
+    var appEl = document.getElementById('ymlAppSelect');
+    var app = appEl ? appEl.value : 'unified';
+    if (ta) {
+        ta.value = v;
+    }
+    var cm = ensureYmlCodeMirror();
+    if (cm) {
+        cm.setValue(v);
+        // change 事件会写入 deployConfig；兜底再写一次避免边界顺序问题
+        deployConfig.ymlConfigs[app] = v;
+        // 说明：恢复旧版「占位符所在行」浅黄底色高亮（与 computeYmlHighlightLines 配套）
+        applyYmlPlaceholderLineHighlights(cm, app);
+        cm.refresh();
+        setTimeout(function () {
+            if (ymlCodeMirrorInstance) {
+                var sel = document.getElementById('ymlAppSelect');
+                var a = sel ? sel.value : 'unified';
+                applyYmlPlaceholderLineHighlights(ymlCodeMirrorInstance, a);
+                ymlCodeMirrorInstance.refresh();
+            }
+        }, 80);
+    } else {
+        deployConfig.ymlConfigs[app] = v;
+    }
+}
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     initWebSocket();
@@ -53,11 +213,11 @@ document.addEventListener('DOMContentLoaded', function() {
             loadBuiltinWars();
             loadConfigList();
             showStep(1);
+            // 说明：必须在 showStep(1) 之后执行，否则异步 finally 会覆盖 URL 哈希指定的步骤
+            handleDeepLinkFromLocation();
         });
     // 字段帮助提示：使用 body 下的 fixed 浮层，避免被滚动容器/overflow 裁剪
     initFieldHelpTooltips();
-    // 支持从首页通过 URL 哈希（例如 #data-init）直达指定步骤，提升入口体验
-    handleDeepLinkFromLocation();
     // 安装目录选择：绑定目录选择器（浏览器限制无法获取绝对路径，仅辅助填写）
     initInstallDirPicker();
 });
@@ -206,15 +366,15 @@ function buildDmConnectionString(ip) {
     return host ? (prefix + host + suffix) : '';
 }
 
-// 从 URL 中解析哈希值，并将用户跳转到对应的部署向导步骤（当前支持数据初始化等入口）
+// 从 URL 中解析哈希值，并将用户跳转到对应的部署向导步骤
 function handleDeepLinkFromLocation() {
     const hash = (window.location.hash || '').toLowerCase();
     if (!hash) {
         return;
     }
-    // 数据初始化步骤由 6 调整为 5
-    if (hash === '#data-init' || hash === '#datainit' || hash === '#step5' || hash === '#step6') {
-        showStep(5);
+    // 说明：数据初始化步骤已移除，旧链接 #data-init / #step5 等统一落到「确认配置」
+    if (hash === '#data-init' || hash === '#datainit' || hash === '#step5' || hash === '#step6' || hash === '#step4') {
+        showStep(4);
     }
 }
 
@@ -391,8 +551,6 @@ function initEventListeners() {
 
 // 左侧导航增强：同步顶部进度条与步骤计数（简化为整体进度，不再显示文字状态）
 function updateSidebarStepUI(step) {
-    const totalSteps = 5;
-
     // 进度数值与进度条（注：按当前步骤占比展示）
     const metaEl = document.getElementById('sidebarStepMeta');
     if (metaEl) metaEl.textContent = `${step} / ${totalSteps}`;
@@ -784,7 +942,7 @@ function showStep(step) {
         btnPrev.disabled = step <= 1;
     }
     if (btnNext) {
-        // 第五步为最后一步：隐藏“下一步”按钮，避免出现无效操作
+        // 第四步（确认配置）为最后一步：隐藏「下一步」
         if (step >= totalSteps) {
             btnNext.style.display = 'none';
             btnNext.disabled = true;
@@ -1087,14 +1245,9 @@ function saveCurrentStepData() {
             break;
         case 3:
             const currentApp = document.getElementById('ymlAppSelect').value;
-            deployConfig.ymlConfigs[currentApp] = document.getElementById('ymlContent').value;
+            deployConfig.ymlConfigs[currentApp] = getYmlEditorValue();
             break;
-        case 5:
-            // 数据初始化参数：在第5步实时回填到 deployConfig，确保可保存/可执行
-            deployConfig.hzbPath = ((document.getElementById('initHzbPath') || {}).value || '').trim();
-            deployConfig.hzbPathLinux = ((document.getElementById('initHzbPathLinux') || {}).value || '').trim();
-            deployConfig.uploadFilesDir = ((document.getElementById('initUploadFilesDir') || {}).value || '').trim();
-            break;
+        // 说明：原第 5 步「数据初始化」表单已移除；初始化相关参数仅保留在 deployConfig 中或由加载配置回填
     }
 }
 
@@ -1149,15 +1302,12 @@ function testDatabase(app) {
                 };
                 // 如果当前在YML配置页面（步骤3），自动更新
                 if (currentStep === 3) {
-                    // 说明：为兼容旧版浏览器，避免使用 ?.，统一改为显式 DOM 判空
                     const ymlAppSelect = document.getElementById('ymlAppSelect');
                     const ymlApp = ymlAppSelect ? ymlAppSelect.value : null;
-                    const ymlContentEl = document.getElementById('ymlContent');
-                    if (ymlApp === app && ymlContentEl && ymlContentEl.value) {
-                        let content = ymlContentEl.value;
+                    if (ymlApp === app && getYmlEditorValue()) {
+                        let content = getYmlEditorValue();
                         content = replaceDatabasePlaceholders(content, app);
-                        ymlContentEl.value = content;
-                        deployConfig.ymlConfigs[app] = content;
+                        setYmlEditorValue(content);
                         Message.success('已同步数据库配置到YML内容');
                     }
                 }
@@ -1408,63 +1558,26 @@ function replaceDatabasePlaceholders(ymlContent, app) {
     return result;
 }
 
-// 计算 YML 模板中需要高亮的行号（包含占位符的行），仅在模板首次加载或重置时调用
+// 计算 YML 模板中需要高亮的行号（占位符行 + 连接池四项所在行），仅在模板首次加载或重置时调用
 function computeYmlHighlightLines(rawContent) {
     // 使用占位符集合集中维护，后续若有新增占位符仅需在此处补充
     const placeholders = ['${type}', '${url}', '${username}', '${password}', '${driver-class-name}', '${authurl}'];
     const lines = rawContent.split(/\r?\n/);
-    const highlight = [];
+    const set = new Set();
     lines.forEach((line, index) => {
         if (placeholders.some(ph => line.includes(ph))) {
-            // 记录用户易理解的 1 开始的行号
-            highlight.push(index + 1);
+            set.add(index + 1);
         }
     });
-    return highlight;
-}
-
-// 将 textarea 中的 YML 内容渲染到只读视图中，支持按行高亮
-function renderYmlViewer(app) {
-    const viewer = document.getElementById('ymlViewer');
-    const textarea = document.getElementById('ymlContent');
-    if (!viewer || !textarea) {
-        return;
-    }
-    const content = textarea.value || '';
-    const highlightLines = (deployConfig.ymlHighlightLines && deployConfig.ymlHighlightLines[app]) || [];
-
-    // 清空旧内容，重新构建只读代码视图
-    viewer.innerHTML = '';
-    const codeContainer = document.createElement('div');
-    codeContainer.className = 'yml-viewer-code';
-
-    const lines = content.split(/\r?\n/);
-    lines.forEach((text, index) => {
-        const lineNo = index + 1;
-        const lineEl = document.createElement('div');
-        // 根据预先计算的行号决定是否应用高亮类
-        lineEl.className = 'yml-line' + (highlightLines.includes(lineNo) ? ' yml-line-modified' : '');
-
-        const noEl = document.createElement('span');
-        noEl.className = 'yml-line-no';
-        noEl.textContent = String(lineNo).padStart(2, ' ');
-
-        const textEl = document.createElement('span');
-        textEl.className = 'yml-line-text';
-        textEl.textContent = text || ' ';
-
-        lineEl.appendChild(noEl);
-        lineEl.appendChild(textEl);
-        codeContainer.appendChild(lineEl);
+    findPoolConfigLineNumbers(rawContent).forEach(function (n) {
+        set.add(n);
     });
-
-    viewer.appendChild(codeContainer);
+    return Array.from(set).sort((a, b) => a - b);
 }
 
 // 复制当前应用的YML内容到剪贴板，便于快速粘贴到外部编辑器或配置平台
 function copyYmlToClipboard() {
-    const textarea = document.getElementById('ymlContent');
-    const content = textarea ? textarea.value : '';
+    const content = getYmlEditorValue();
     if (!content) {
         if (typeof Message !== 'undefined') {
             Message.warning('当前没有可复制的YML内容');
@@ -1535,11 +1648,10 @@ function switchYmlTab(app) {
         }
     });
 
-    // 加载当前应用的 YML 模板，并在完成后渲染只读视图
     loadYmlTemplate();
 }
 
-// 加载YML模板并渲染为只读视图：内部仍复用 textarea 存储真实配置文本
+// 加载 YML 模板并写入可编辑的高亮编辑器（textarea + CodeMirror）
 function loadYmlTemplate() {
     console.log('[loadYmlTemplate] ========== 开始加载YML模板 ==========');
     const app = document.getElementById('ymlAppSelect').value;
@@ -1603,12 +1715,9 @@ function loadYmlTemplate() {
             content = replaceDatabasePlaceholders(content, app);
         }
         
-        document.getElementById('ymlContent').value = content;
-        deployConfig.ymlConfigs[app] = content;
-        console.log('[loadYmlTemplate] 替换后内容已设置到textarea');
-        console.log('[loadYmlTemplate] textarea当前值预览:', document.getElementById('ymlContent').value.substring(0, 300));
-        // 已保存配置通常不再包含占位符，此时沿用历史高亮设置即可
-        renderYmlViewer(app);
+        setYmlEditorValue(content);
+        console.log('[loadYmlTemplate] 替换后内容已写入编辑器');
+        console.log('[loadYmlTemplate] 内容预览:', content.substring(0, 300));
     } else {
         console.log('[loadYmlTemplate] 从服务器加载YML模板');
         fetch(`/api/yml/template/${app}`)
@@ -1632,20 +1741,15 @@ function loadYmlTemplate() {
                     deployConfig.ymlHighlightLines[app] = computeYmlHighlightLines(content);
                     // 自动替换数据库占位符
                     content = replaceDatabasePlaceholders(content, app);
-                    document.getElementById('ymlContent').value = content;
-                    deployConfig.ymlConfigs[app] = content;
+                    setYmlEditorValue(content);
                     console.log('[loadYmlTemplate] 模板加载并替换完成');
-                    // 模板加载后立即渲染只读视图
-                    renderYmlViewer(app);
                 } else {
                     console.warn('[loadYmlTemplate] 服务器返回失败或无内容');
                     let defaultContent = '# YML配置文件\n# 请在此编辑配置内容';
                     // 即使没有模板，也尝试替换占位符
                     deployConfig.ymlHighlightLines[app] = computeYmlHighlightLines(defaultContent);
                     defaultContent = replaceDatabasePlaceholders(defaultContent, app);
-                    document.getElementById('ymlContent').value = defaultContent;
-                    // 渲染只读视图以避免空白
-                    renderYmlViewer(app);
+                    setYmlEditorValue(defaultContent);
                 }
             })
             .catch(error => {
@@ -1653,8 +1757,7 @@ function loadYmlTemplate() {
                 let defaultContent = '# YML配置文件\n# 请在此编辑配置内容';
                 deployConfig.ymlHighlightLines[app] = computeYmlHighlightLines(defaultContent);
                 defaultContent = replaceDatabasePlaceholders(defaultContent, app);
-                document.getElementById('ymlContent').value = defaultContent;
-                renderYmlViewer(app);
+                setYmlEditorValue(defaultContent);
             });
     }
     console.log('[loadYmlTemplate] ========== 加载YML模板完成 ==========');
@@ -1670,7 +1773,7 @@ function resetYmlTemplate() {
 // 保存YML配置
 function saveYmlConfig() {
     const app = document.getElementById('ymlAppSelect').value;
-    const content = document.getElementById('ymlContent').value;
+    const content = getYmlEditorValue();
     deployConfig.ymlConfigs[app] = content;
     
     fetch('/api/yml/save', {
@@ -2444,6 +2547,10 @@ function loadConfig() {
                 Message.success('配置加载成功！已填充到各个配置页面。');
                 // 刷新WAR包列表显示
                 loadBuiltinWars();
+                // 若正在 YML 步骤，刷新编辑器内容
+                if (currentStep === 3) {
+                    loadYmlTemplate();
+                }
                 // 如果当前在步骤4，更新配置摘要
                 if (currentStep === 4) {
                     updateConfigSummary();

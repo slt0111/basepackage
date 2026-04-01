@@ -6,6 +6,8 @@
     <!-- 部署向导页面：与首页统一的互联网工具台风格，供一键部署入口跳转 -->
     <title>红云公务员干部产品工具 - 一键部署向导</title>
     <link rel="stylesheet" href="css/style.css">
+    <!-- CodeMirror：YML 语法高亮与可编辑（静态资源见 static/vendor/codemirror/，离线可用） -->
+    <link rel="stylesheet" href="vendor/codemirror/codemirror.min.css">
     <style>
         /* 单屏布局：页面不整体滚动，仅右侧内容区内部滚动；左右分栏 */
         html {
@@ -860,82 +862,136 @@
             position: relative;          /* 作为复制按钮绝对定位的参考容器 */
             flex: 1;
             display: flex;
+            flex-direction: column;
             min-height: 0;
         }
-        /* 隐藏的 textarea：仅用于脚本内部存储，不对用户展示且只读 */
-        body.deploy-page .yml-editor-hidden {
-            display: none;
+        /* 无 CodeMirror 时的纯文本兜底（初始化后由 CodeMirror 隐藏 textarea） */
+        body.deploy-page .yml-editor-native-fallback {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 8px;
+            padding: 10px 12px;
+            min-height: 380px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.45;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.55);
+            background: #f8fafc;
         }
-        /* 只读的 YML 展示区域：占满剩余空间，可滚动，高度更加充实 */
-        body.deploy-page .yml-viewer {
+        /* CodeMirror 编辑区：整体高度与原先只读代码块一致（约 380px 可视高度，内部单行区滚动） */
+        body.deploy-page .yml-viewer-wrapper .CodeMirror {
             flex: 1;
+            width: 100%;
+            height: 380px;
+            min-height: 380px;
             margin-top: 8px;
             border-radius: 10px;
-            border: 1px solid rgba(148, 163, 184, 0.5);
-            padding: 12px 14px;
-            background: #f9fafb; /* 调整为浅色底，统一整体视觉风格，降低压迫感 */
-            color: #111827;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.55);
+            font-size: 13px;
             line-height: 1.5;
-            overflow: auto;             /* 仅内部滚动，避免出现外部大片空白 */
-            white-space: nowrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         }
-        /* YML 代码行容器：用于支持逐行高亮 */
-        body.deploy-page .yml-viewer-code {
-            min-height: 100%;
+        body.deploy-page .yml-viewer-wrapper .CodeMirror-gutters {
+            border-right: 1px solid rgba(148, 163, 184, 0.4);
+            background: #eef2ff;
         }
-        body.deploy-page .yml-line {
-            display: flex;
-            align-items: flex-start;
-        }
-        /* 行号列：弱化显示，方便定位 */
-        body.deploy-page .yml-line-no {
-            width: 40px;
-            flex-shrink: 0;
-            text-align: right;
-            margin-right: 12px;
+        body.deploy-page .yml-viewer-wrapper .CodeMirror-linenumber {
             color: #64748b;
-            user-select: none;
+            font-size: 12px;
         }
-        body.deploy-page .yml-line-text {
-            white-space: pre;
+        /* 右侧留白，避免长行与「复制」按钮重叠 */
+        body.deploy-page .yml-viewer-wrapper .CodeMirror-scroll {
+            padding-right: 76px;
         }
-        /* 被占位符替换过的行：使用浅蓝背景高亮，强调修改位置 */
-        body.deploy-page .yml-line-modified {
-            background: rgba(250, 204, 21, 0.22); /* 调整为淡黄色高亮，模拟代码差异提示效果，强调占位符替换行 */
+        /* 自定义主题 deploy-yml：YAML 模式 token（见 mode/yaml 的 comment/string/atom/keyword/def/meta 等） */
+        body.deploy-page .cm-s-deploy-yml.CodeMirror {
+            background: #f8fafc;
+            color: #0f172a;
         }
-        body.deploy-page .yml-line-modified .yml-line-no {
-            color: #ca8a04;
+        body.deploy-page .cm-s-deploy-yml .CodeMirror-cursor {
+            border-left: 2px solid #2563eb;
+        }
+        body.deploy-page .cm-s-deploy-yml .CodeMirror-selected {
+            background: rgba(59, 130, 246, 0.22);
+        }
+        body.deploy-page .cm-s-deploy-yml .CodeMirror-focused .CodeMirror-selected {
+            background: rgba(59, 130, 246, 0.28);
+        }
+        /* 键名（YAML key） */
+        body.deploy-page .cm-s-deploy-yml .cm-atom {
+            color: #0d9488;
+            font-weight: 600;
+        }
+        /* true/false/on/off/yes/no */
+        body.deploy-page .cm-s-deploy-yml .cm-keyword {
+            color: #7c3aed;
+            font-weight: 600;
+        }
+        /* 数字 */
+        body.deploy-page .cm-s-deploy-yml .cm-number {
+            color: #c2410c;
+            font-weight: 500;
+        }
+        /* 字符串 */
+        body.deploy-page .cm-s-deploy-yml .cm-string {
+            color: #15803d;
+        }
+        /* 文档分隔符 --- / ...、列表符、缩进结构等 */
+        body.deploy-page .cm-s-deploy-yml .cm-meta {
+            color: #64748b;
+            font-weight: 500;
+        }
+        body.deploy-page .cm-s-deploy-yml .cm-def {
+            color: #0369a1;
+            font-weight: 700;
+        }
+        /* 锚点 & 别名 * */
+        body.deploy-page .cm-s-deploy-yml .cm-variable-2 {
+            color: #a21caf;
+            font-weight: 500;
+        }
+        /* 注释 */
+        body.deploy-page .cm-s-deploy-yml .cm-comment {
+            color: #94a3b8;
+            font-style: italic;
+        }
+        /* 占位符替换行底色：与旧版 .yml-line-modified 一致，标识曾含 ${...} 模板的行 */
+        body.deploy-page .cm-s-deploy-yml .CodeMirror-linebackground.yml-placeholder-line {
+            background: rgba(250, 204, 21, 0.28) !important;
         }
         /* YML 操作按钮区域：与代码区保持一定间距 */
         body.deploy-page .yml-buttons {
             gap: 12px;
             margin-top: 10px;
         }
-        /* YML 复制按钮：放置在代码视图内部右上角，显示“复制”文字 + 图标 */
+        /* YML 复制按钮：浮在编辑器右上角，需高于 CodeMirror 层保证可点 */
         body.deploy-page .yml-copy-btn {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 18px;
+            right: 14px;
+            z-index: 6;
             border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.7);
-            background-color: rgba(248, 250, 252, 0.95);
+            border: 1px solid rgba(59, 130, 246, 0.45);
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
             cursor: pointer;
             flex-shrink: 0;
-            padding: 4px 10px; /* 预留文字“复制”的水平空间 */
+            padding: 5px 12px;
             transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 12px;
-            color: #374151;
-            gap: 4px; /* 文字与图标之间的间距 */
+            font-weight: 500;
+            color: #1e40af;
+            gap: 4px;
         }
         body.deploy-page .yml-copy-btn:hover {
-            background-color: #d1d5db;
-            border-color: rgba(107, 114, 128, 0.9);
-            box-shadow: 0 1px 4px rgba(148, 163, 184, 0.6);
+            background: #e0e7ff;
+            border-color: rgba(37, 99, 235, 0.55);
+            box-shadow: 0 3px 10px rgba(37, 99, 235, 0.2);
             transform: translateY(-0.5px);
         }
         body.deploy-page .yml-copy-btn:active {
@@ -1598,7 +1654,7 @@
                     <div class="steps-header-title-row">
                         <div class="steps-header-title">部署步骤</div>
                         <!-- 注：数值由前端随步骤切换更新 -->
-                        <div class="steps-header-meta" id="sidebarStepMeta">1 / 5</div>
+                        <div class="steps-header-meta" id="sidebarStepMeta">1 / 4</div>
                     </div>
                     <div class="steps-progress" aria-hidden="true">
                         <div class="steps-progress-fill" id="sidebarProgressFill"></div>
@@ -1676,22 +1732,7 @@
                             </div>
                             <div class="step-desc" title="查看部署摘要与关键参数，一键发起部署并实时查看部署日志">查看部署摘要与关键参数，一键发起部署并实时查看部署日志</div>
                         </div>
-                        <div class="step-connector"></div>
-                    </div>
-                    <div class="step-item" data-step="5" tabindex="0">
-                        <div class="step-icon" aria-hidden="true" title="数据初始化">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-                                <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
-                                <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"></path>
-                            </svg>
-                        </div>
-                        <div class="step-content">
-                            <div class="step-title-row">
-                                <div class="step-title">数据初始化</div>
-                            </div>
-                            <div class="step-desc" title="仅执行数据初始化脚本，查看日志并通过心跳检测确认服务可用">仅执行数据初始化脚本，查看日志并通过心跳检测确认服务可用</div>
-                        </div>
+                        <!-- 说明：最后一步不再展示竖向连接线，避免视觉悬空 -->
                     </div>
                 </div>
             </aside>
@@ -1896,13 +1937,10 @@
                     <div class="yml-header-row">
                         <h3 id="ymlAppTitle">统一支撑YML配置</h3>
                     </div>
-                    <!-- 隐藏的 textarea：只读，用于脚本保存最终YML文本，避免用户直接编辑 -->
-                    <textarea id="ymlContent" class="yml-editor-hidden" rows="20" placeholder="YML配置内容将在这里显示..." readonly></textarea>
-                    <!-- 对用户展示的只读YML视图：支持逐行高亮显示替换过的行，内部右上角提供复制按钮 -->
+                    <!-- 说明：textarea 由 CodeMirror.fromTextArea 接管为可编辑、YAML 高亮编辑器；无 CM 时仍可作为纯文本兜底 -->
                     <div class="yml-viewer-wrapper">
-                        <!-- 复制按钮：显示“复制”文字 + 图标，点击复制当前YML文件内容 -->
-                        <button type="button" class="yml-copy-btn" onclick="copyYmlToClipboard()" title="复制文件">复制</button>
-                        <div id="ymlViewer" class="yml-viewer" aria-readonly="true"></div>
+                        <button type="button" class="yml-copy-btn" onclick="copyYmlToClipboard()" title="复制当前内容">复制</button>
+                        <textarea id="ymlContent" class="yml-editor-native-fallback" rows="22" placeholder="YML 配置加载后将显示在此处，可直接编辑"></textarea>
                     </div>
                     <div class="yml-buttons">
                         <button type="button" class="btn-secondary" onclick="resetYmlTemplate()">重置模板</button>
@@ -1951,58 +1989,8 @@
                 <button type="button" class="btn-secondary" onclick="prevStep()">上一步</button>
             </div>
         </div>
-
-        <!-- 步骤5：数据初始化 -->
-        <div class="wizard-step" id="step5" data-step="5" style="display: none;">
-            <h2>第五步：数据初始化</h2>
-            
-            <div class="script-section">
-                <div class="init-layout">
-                    <div class="init-side">
-                        <h3 class="init-panel-title">初始化参数</h3>
-                        <p class="init-panel-muted">填写替换参数并生成脚本，脚本内容在右侧实时预览。</p>
-                        <div class="form-group">
-                            <label>选择数据库：</label>
-                            <select id="scriptDatabase">
-                                <option value="unified">统一支撑</option>
-                                <option value="cadre">干部应用</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>文件主目录（HZB_PATH）：</label>
-                            <input type="text" id="initHzbPath" placeholder="例如：D:\hzb_data">
-                        </div>
-                        <div class="form-group">
-                            <label>文件主目录（HZB_PATH_LINUX）：</label>
-                            <input type="text" id="initHzbPathLinux" placeholder="例如：/opt/hzb/data">
-                        </div>
-                        <div class="form-group">
-                            <label>文件上传根目录（UPLOAD_FILES_DIR）：</label>
-                            <input type="text" id="initUploadFilesDir" placeholder="例如：/data/upload/files">
-                        </div>
-                        <div class="init-action-row">
-                            <button type="button" class="btn-secondary" onclick="previewInitScripts()">生成脚本清单</button>
-                            <button type="button" class="btn-secondary" onclick="downloadInitScripts()">下载脚本</button>
-                            <button type="button" class="btn-primary" onclick="executeInitScripts()">在线执行初始化</button>
-                        </div>
-                        <div id="scriptResult" class="script-result">执行结果将在这里显示。</div>
-                    </div>
-                    <div class="init-main">
-                        <div class="init-main-header">
-                            <h3 class="init-main-title">初始化脚本预览（替换后）</h3>
-                            <div id="scriptPreviewMeta" class="script-preview-meta"></div>
-                        </div>
-                        <div id="scriptPreview" class="script-preview">请先点击“生成脚本清单”查看替换后的最终 SQL。</div>
-                    </div>
                 </div>
-            </div>
-
-            <div class="wizard-buttons">
-                <button type="button" class="btn-secondary" onclick="prevStep()">上一步</button>
-            </div>
-        </div>
-                </div>
-                <!-- 右侧底部固定操作栏：上一步/下一步常驻，第一步禁用上一步、第五步禁用下一步 -->
+                <!-- 右侧底部固定操作栏：上一步/下一步常驻，第一步禁用上一步、第四步（确认配置）为最后一步并隐藏下一步 -->
                 <div class="deploy-actions" id="deployActions">
                     <button type="button" id="deployBtnPrev" class="btn-secondary" onclick="prevStep()" disabled>上一步</button>
                     <button type="button" id="deployBtnNext" class="btn-primary" onclick="nextStep()">下一步</button>
@@ -2012,6 +2000,8 @@
     </div>
 
     <script src="js/message.js"></script>
+    <script src="vendor/codemirror/codemirror.min.js"></script>
+    <script src="vendor/codemirror/mode/yaml/yaml.min.js"></script>
     <script src="js/deploy.js"></script>
 
     <!-- 部署脚本弹窗：主页面隐藏，点击“部署脚本”按钮弹出显示 -->

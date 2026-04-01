@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- 主页：红云公务员干部产品工具入口页，提供一键部署与数据初始化两个主操作入口 -->
+    <!-- 主页：红云公务员干部产品工具入口页，提供一键部署与模拟数据管理等主操作入口（数据初始化入口已隐藏） -->
     <title>红云公务员干部产品工具</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
@@ -299,11 +299,11 @@
             text-align: left;
         }
 
-        /* 下半部分卡片入口：一键部署 / 数据初始化 */
+        /* 下半部分卡片入口：一键部署 / 模拟数据管理（数据初始化卡片已隐藏） */
         .entry-grid {
             display: grid;
-            /* 单屏布局：三个核心功能入口同屏展示，避免形成第二行导致滚动 */
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            /* 双列：一键部署 + 模拟数据管理 */
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 14px;
         }
 
@@ -650,13 +650,10 @@
                         <span class="home-chip home-chip-quiet">导出 / 导入</span>
                     </div>
 
-                    <!-- 主操作按钮：引导用户选择一键部署或只做数据初始化 -->
+                    <!-- 主操作按钮：引导用户进入一键部署（数据初始化入口已隐藏） -->
                     <div class="home-hero-actions">
                         <a href="deploy.html" class="home-hero-btn home-hero-btn-primary">
                             立即一键部署
-                        </a>
-                        <a href="#" class="home-hero-btn home-hero-btn-ghost" onclick="return showDataInitTip();">
-                            仅执行数据初始化
                         </a>
                     </div>
 
@@ -683,13 +680,12 @@
                         <ul class="home-stat-list">
                             <li>部署：向导式配置与发布</li>
                             <li>模拟数据：导出、导入、数据包下载</li>
-                            <li>数据初始化：入口已保留（功能持续完善）</li>
                         </ul>
                     </div>
                 </aside>
             </div>
 
-            <!-- 下半区：两张卡片分别承载一键部署和数据初始化入口 -->
+            <!-- 下半区：一键部署与模拟数据管理入口 -->
             <section class="entry-grid" aria-label="核心功能入口">
                 <a class="entry-card entry-card-primary" href="deploy.html">
                     <div class="entry-icon entry-icon-deploy" aria-hidden="true"></div>
@@ -730,22 +726,6 @@
                         </div>
                     </div>
                 </div>
-
-                <a class="entry-card entry-card-secondary" href="#" onclick="return showDataInitTip();">
-                    <div class="entry-icon entry-icon-data" aria-hidden="true"></div>
-                    <div class="entry-content">
-                        <h2 class="entry-title">数据初始化</h2>
-                        <p class="entry-desc">
-                            针对统一支撑与干部应用的数据库初始化，可按脚本批次执行，适用于环境重置与回归测试。
-                        </p>
-                        <ul class="entry-meta">
-                            <li>支持多脚本顺序执行</li>
-                            <li>与部署配置共用数据库连接</li>
-                            <li>执行日志可回溯审计</li>
-                        </ul>
-                    </div>
-                    <span class="entry-action">直接进入数据初始化</span>
-                </a>
             </section>
         </main>
 
@@ -764,16 +744,6 @@
     </div>
     <script src="js/message.js"></script>
     <script>
-        // 数据初始化入口提示：使用公共弹窗组件
-        function showDataInitTip() {
-            if (typeof Message !== 'undefined') {
-                Message.alert('数据初始化功能待开发');
-            } else {
-                alert('数据初始化功能待开发');
-            }
-            return false;
-        }
-
         // 模拟数据导入入口提示：预留导入能力，避免用户误以为功能已可用
         function showMockImportTip() {
             if (typeof Message !== 'undefined') {
